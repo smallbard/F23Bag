@@ -1,0 +1,21 @@
+﻿-- Contraintes --
+Les objets doivent avoir une propriété Id (pas de contrainte sur son type).
+
+Pour le lazy loading :
+	- des collections :
+		* la propriété collection doit être une interface de collection.
+	- d'un objet lié :
+		* les propriétés des objets liés doivent être virtuelles.
+
+-- Conventions par défaut --
+
+Les colonnes clés étrangères sont préfixées par IDFK_.
+Les nom des colonnes sont les versions snake case en majuscule des noms pascal case des propriétés (ex : IdEntity => ID_ENTITY).
+
+Ces conventions peuvent être redéfinies.
+
+-- Fonctionnalités
+
+Lazy loading et eager loading configurables à la requête.
+Update, insert et delete en masse possibles à partir de IQueryable<T>.
+Support des requêtes récursive sur IQueryable<T>.
