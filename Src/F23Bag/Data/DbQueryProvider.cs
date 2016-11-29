@@ -14,12 +14,14 @@ namespace F23Bag.Data
         private readonly ISQLProvider _sqlProvider;
         private readonly ISQLMapping _sqlMapping;
         private readonly IEnumerable<IExpresstionToSqlAst> _customConverters;
+        private readonly Func<Type, object> _resolver;
 
-        public DbQueryProvider(ISQLProvider sqlProvider, ISQLMapping sqlMapping, IEnumerable<IExpresstionToSqlAst> customConverters)
+        public DbQueryProvider(ISQLProvider sqlProvider, ISQLMapping sqlMapping, IEnumerable<IExpresstionToSqlAst> customConverters, Func<Type, object> resolver)
         {
             _sqlProvider = sqlProvider;
             _sqlMapping = sqlMapping;
             _customConverters = customConverters;
+            _resolver = resolver;
         }
 
         public ISQLMapping SqlMapping { get { return _sqlMapping; } }
@@ -73,12 +75,12 @@ namespace F23Bag.Data
 
         private T GetFirstResult<T>(DbConnection connection, DbCommand command, DbDataReader reader, Request request, Mapper mapper)
         {
-            return new ObjectReader<T>(connection, command, reader, request, _sqlProvider.GetSQLTranslator(), mapper).FirstOrDefault();
+            return new ObjectReader<T>(connection, command, reader, request, _sqlProvider.GetSQLTranslator(), mapper, _resolver).FirstOrDefault();
         }
 
         private IEnumerable<T> GetResults<T>(DbConnection connection, DbCommand command, DbDataReader reader, Request request, Mapper mapper)
         {
-            return new ObjectReader<T>(connection, command, reader, request, _sqlProvider.GetSQLTranslator(), mapper);
+            return new ObjectReader<T>(connection, command, reader, request, _sqlProvider.GetSQLTranslator(), mapper, _resolver);
         }
     }
 }

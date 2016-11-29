@@ -14,9 +14,9 @@ namespace F23Bag.Data
     {
         private Enumerator _enumerator;
 
-        internal ObjectReader(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper)
+        internal ObjectReader(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
         {
-            _enumerator = new Enumerator(connection, command, reader, request, sqlTranslator, mapper);
+            _enumerator = new Enumerator(connection, command, reader, request, sqlTranslator, mapper, resolver);
         }
 
         public IEnumerator<T> GetEnumerator()
@@ -43,13 +43,14 @@ namespace F23Bag.Data
             private readonly bool _isSimpleType;
             private readonly bool _isAnonymousType;
             private readonly Mapper _mapper;
+            private readonly Func<Type, object> _resolver;
             private readonly Func<T> _createNew;
             private readonly Func<DbDataReader, T> _createNewAnonymousType;
             private T _current;
             private object _lastId;
             private bool _notEndOfReader;
 
-            internal Enumerator(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper)
+            internal Enumerator(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
             {
                 _connection = connection;
                 _command = command;
@@ -58,6 +59,7 @@ namespace F23Bag.Data
                 _sqlTranslator = sqlTranslator;
                 _isSimpleType = typeof(T) == typeof(string) || !typeof(T).IsClass;
                 _mapper = mapper;
+                _resolver = resolver;
                 _notEndOfReader = true;
 
                 if (!_isSimpleType)
@@ -72,6 +74,8 @@ namespace F23Bag.Data
                         var body = new List<Expression>();
 
                         ci = typeof(T).GetConstructors()[0];
+                        if (ci.GetParameters().Any(p => p.ParameterType.IsInterface)) _isAnonymousType = false; // simple type with constructor injection
+
                         var parameters = ci.GetParameters();
                         for (var i = 0; i < parameters.Length; i++)
                         {
@@ -80,6 +84,8 @@ namespace F23Bag.Data
                                 exp = Expression.TypeAs(
                                         Expression.MakeIndex(pDataReader, typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int)), new[] { Expression.Constant(i) }),
                                         parameters[i].ParameterType);
+                            else if (parameters[i].ParameterType.IsInterface)
+                                exp = Expression.Constant(_resolver(parameters[i].ParameterType));
                             else
                                 exp = Expression.Convert(
                                         Expression.Call(_changeTypeMethod,
@@ -98,7 +104,10 @@ namespace F23Bag.Data
                         body.Add(Expression.Return(returnTarget, Expression.New(ci, variables), typeof(T)));
                         body.Add(Expression.Label(returnTarget, Expression.Constant(default(T), typeof(T))));
 
-                        _createNewAnonymousType = Expression.Lambda<Func<DbDataReader, T>>(Expression.Block(variables, body), pDataReader).Compile();
+                        if (_isAnonymousType)
+                            _createNewAnonymousType = Expression.Lambda<Func<DbDataReader, T>>(Expression.Block(variables, body), pDataReader).Compile();
+                        else
+                            _createNew = Expression.Lambda<Func<T>>(Expression.Block(variables, body)).Compile();
                     }
                     else
                         _createNew = Expression.Lambda<Func<T>>(Expression.New(ci)).Compile();

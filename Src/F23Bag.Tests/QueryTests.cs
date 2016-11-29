@@ -217,7 +217,7 @@ namespace F23Bag.Tests
         private string GetRequest<T>(Func<IQueryable<T>, object> defineQuery, IPropertyMapper[] mappers, params IExpresstionToSqlAst[] converters)
         {
             var translator = new FakeSqlTraductor();
-            defineQuery(new Query<T>(new DbQueryProvider(new FakeSqlProvider(translator), new DefaultSqlMapping(mappers), converters))).ToString();
+            defineQuery(new Query<T>(new DbQueryProvider(new FakeSqlProvider(translator), new DefaultSqlMapping(mappers), converters, null))).ToString();
             return translator.Request.ToString();
         }
 

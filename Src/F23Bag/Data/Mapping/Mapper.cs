@@ -107,6 +107,8 @@ namespace F23Bag.Data.Mapping
                     var mapper = mappers.FirstOrDefault(m => m.Accept(request.Select[i].Property));
                     if (mapper != null)
                         mapper.Map(o, request.Select[i].Property, reader, i);
+                    else if (request.Select[i].Property.PropertyType.IsEnum)
+                        request.Select[i].Property.SetValue(o, Convert.ToInt32(reader[i]));
                     else
                         request.Select[i].Property.SetValue(o, Convert.ChangeType(DBNull.Value.Equals(reader[i]) ? null : reader[i], request.Select[i].Property.PropertyType));
                 }

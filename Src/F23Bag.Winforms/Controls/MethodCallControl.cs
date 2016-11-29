@@ -61,8 +61,8 @@ namespace F23Bag.Winforms.Controls
         internal static void CallMethod(Layout layout, object data, List<object> parameters, MethodInfo method, bool hasCloseBehavior, WinformsUIBuilder uiBuilder, I18n i18n, Func<Type, IAuthorization> getAuthorization)
         {
             var returnValue = method.Invoke(data, parameters.ToArray());
-            if (hasCloseBehavior && Form.ActiveForm != null) Form.ActiveForm.Close();
-            if (returnValue != null)
+            if (hasCloseBehavior && ((returnValue is bool && (bool)returnValue) || !(returnValue is bool)) && Form.ActiveForm != null) Form.ActiveForm.Close();
+            if (returnValue != null && !(returnValue is bool))
             {
                 var builder = new WinformsUIBuilder(uiBuilder.ControlConventions, false);
                 builder.Display(layout.LoadSubLayout(returnValue.GetType(), false, true).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),returnValue, returnValue.ToString(), i18n, getAuthorization);

@@ -13,7 +13,7 @@ namespace F23Bag.Tests
 
         public IQueryable<T> GetQuery<T>()
         {
-            return new Query<T>(new DbQueryProvider(Provider, new DefaultSqlMapping(null), null));
+            return new Query<T>(new DbQueryProvider(Provider, new DefaultSqlMapping(null), null, null));
         }
 
         [TestMethod]

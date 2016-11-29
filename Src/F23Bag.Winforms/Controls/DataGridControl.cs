@@ -98,6 +98,25 @@ namespace F23Bag.Winforms.Controls
                 ctrl.Display(new Func<System.Collections.IEnumerable>(() => gridView.SelectedRows.OfType<DataGridViewRow>().Select(r => r.DataBoundItem).ToList()), i18n, _getAuthorization);
             flowActions.Visible = flowActions.Controls.OfType<DataControl>().Any(c => c.Visible);
 
+            BindCollection(data);
+
+            if (data is INotifyPropertyChanged)
+            {
+                ((INotifyPropertyChanged)data).PropertyChanged -= GridControl_PropertyChanged;
+                ((INotifyPropertyChanged)data).PropertyChanged += GridControl_PropertyChanged;
+            }
+        }
+
+        private void GridControl_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Property.Name)
+            {
+                BindCollection(sender);
+            }
+        }
+
+        private void BindCollection(object data)
+        {
             var collection = Property.GetValue(data);
             if (collection is INotifyCollectionChanged)
             {
