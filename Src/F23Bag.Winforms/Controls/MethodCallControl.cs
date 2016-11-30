@@ -13,11 +13,10 @@ namespace F23Bag.Winforms.Controls
         private readonly OneMemberLayout _layout;
         private readonly MethodInfo _method;
         private readonly bool _hasCloseBehavior;
-        private readonly WinformsUIBuilder _uiBuilder;
         private readonly string _label;
-        private readonly Func<Type, IAuthorization> _getAuthorization;
 
-        public MethodCallControl(OneMemberLayout layout, MethodInfo method, bool hasCloseBehavior, WinformsUIBuilder uiBuilder, string label, Func<Type, IAuthorization> getAuthorization)
+        public MethodCallControl(OneMemberLayout layout, WinformContext context, MethodInfo method, bool hasCloseBehavior, string label)
+            : base(layout, context)
         {
             InitializeComponent();
 
@@ -28,56 +27,54 @@ namespace F23Bag.Winforms.Controls
             _layout = layout;
             _method = method;
             _hasCloseBehavior = hasCloseBehavior;
-            _uiBuilder = uiBuilder;
             _label = label;
-            _getAuthorization = getAuthorization;
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
-            btnMethodCall.Text = i18n.GetTranslation(_label);
+            btnMethodCall.Text = Context.I18n.GetTranslation(_label);
             btnMethodCall.Click += (s, e) =>
             {
                 if (_method.DeclaringType.IsAssignableFrom(data.GetType()))
                 {
-                    var parameters = AskParameters(_layout, _method, _uiBuilder, i18n, _getAuthorization);
-                    CallMethod(_layout, data, parameters, _method, _hasCloseBehavior, _uiBuilder, i18n, _getAuthorization);
+                    var parameters = AskParameters(_layout, _method, Context);
+                    CallMethod(_layout, data, parameters, _method, _hasCloseBehavior, Context);
                 }
                 else if (data is Func<System.Collections.IEnumerable>)
                 {
                     var lst = ((Func<System.Collections.IEnumerable>)data)().OfType<object>().ToArray();
                     if (lst.Length == 0) return;
-                    var parameters = AskParameters(_layout, _method, _uiBuilder, i18n, _getAuthorization);
+                    var parameters = AskParameters(_layout, _method, Context);
                     foreach (var d in lst)
                         if (d != null)
                         {
-                            var authorization = _getAuthorization(d.GetType());
-                            if (authorization.IsEnable(d, _method)) CallMethod(_layout, d, parameters, _method, false, _uiBuilder, i18n, _getAuthorization);
+                            var authorization = Context.GetAuthorization(d.GetType());
+                            if (authorization.IsEnable(d, _method)) CallMethod(_layout, d, parameters, _method, false, Context);
                         }
                 }
             };
         }
 
-        internal static void CallMethod(Layout layout, object data, List<object> parameters, MethodInfo method, bool hasCloseBehavior, WinformsUIBuilder uiBuilder, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        internal static void CallMethod(Layout layout, object data, List<object> parameters, MethodInfo method, bool hasCloseBehavior, WinformContext context)
         {
             var returnValue = method.Invoke(data, parameters.ToArray());
             if (hasCloseBehavior && ((returnValue is bool && (bool)returnValue) || !(returnValue is bool)) && Form.ActiveForm != null) Form.ActiveForm.Close();
             if (returnValue != null && !(returnValue is bool))
             {
-                var builder = new WinformsUIBuilder(uiBuilder.ControlConventions, false);
-                builder.Display(layout.LoadSubLayout(returnValue.GetType(), false, true).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),returnValue, returnValue.ToString(), i18n, getAuthorization);
+                var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
+                builder.Display(layout.LoadSubLayout(returnValue.GetType(), false, true).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),returnValue, returnValue.ToString());
             }
         }
 
-        internal static List<object> AskParameters(Layout layout, MethodInfo method, WinformsUIBuilder uiBuilder, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        internal static List<object> AskParameters(Layout layout, MethodInfo method, WinformContext context)
         {
             var parameters = new List<object>();
             foreach (var parameter in method.GetParameters())
             {
                 var argument = Activator.CreateInstance(parameter.ParameterType);
 
-                var builder = new WinformsUIBuilder(uiBuilder.ControlConventions, false);
-                builder.Display(layout.LoadSubLayout(parameter.ParameterType, false, false).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name, i18n, getAuthorization);
+                var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
+                builder.Display(layout.LoadSubLayout(parameter.ParameterType, false, false).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name);
                 parameters.Add(argument);
             }
 

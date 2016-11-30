@@ -16,9 +16,9 @@ namespace F23Bag.Winforms.Conventions
             return layout.ItemsSource != null;
         }
 
-        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout)
+        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout, WinformContext context)
         {
-            return new ComboControl(property, layout.Label, (PropertyInfo)layout.ItemsSource);
+            return new ComboControl(layout, context, property, layout.Label, (PropertyInfo)layout.ItemsSource);
         }
     }
 }

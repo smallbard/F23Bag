@@ -44,6 +44,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutomaticUI\DefaultI18n.cs" />
     <Compile Include="AutomaticUI\I18n.cs" />
     <Compile Include="AutomaticUI\IAuthorization.cs" />
     <Compile Include="AutomaticUI\Layouts\ILayoutProvider.cs" />
@@ -71,6 +72,7 @@
     <Compile Include="Domain\IHasInteractions.cs" />
     <Compile Include="Domain\IHasValidation.cs" />
     <Compile Include="Domain\InteractionEventArgs.cs" />
+    <Compile Include="Domain\IDataAccess.cs" />
     <Compile Include="Domain\ISelector.cs" />
     <Compile Include="Domain\MandatoryAttribute.cs" />
     <Compile Include="Domain\MaxLengthAttribute.cs" />

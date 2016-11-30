@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -12,14 +13,11 @@ namespace F23Bag.Winforms.Controls
         private readonly string _label;
         private object _data;
 
-        public NumericControl()
+        public NumericControl(Layout layout, WinformContext context, PropertyInfo property, string label)
+            : base(layout, context)
         {
             InitializeComponent();
-        }
 
-        public NumericControl(PropertyInfo property, string label)
-            : this()
-        {
             DisplayedMember = property;
             _property = property;
             _label = label;
@@ -36,9 +34,9 @@ namespace F23Bag.Winforms.Controls
             }
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
-            lblLabel.Text = i18n.GetTranslation(_label);
+            lblLabel.Text = Context.I18n.GetTranslation(_label);
             if (data is INotifyPropertyChanged)
             {
                 ((INotifyPropertyChanged)data).PropertyChanged -= NumericControl_PropertyChanged;

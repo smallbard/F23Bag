@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -13,16 +14,13 @@ namespace F23Bag.Winforms.Controls
         private readonly string _label;
         private object _data;
 
-        public EnumControl()
+        public EnumControl(Layout layout, WinformContext context, PropertyInfo property, string label)
+            : base(layout, context)
         {
             InitializeComponent();
 
             cbValue.DropDownStyle = ComboBoxStyle.DropDownList;
-        }
 
-        public EnumControl(PropertyInfo property, string label)
-            : this()
-        {
             DisplayedMember = property;
             _property = property;
             _label = label;
@@ -36,14 +34,14 @@ namespace F23Bag.Winforms.Controls
             }
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
-            lblLabel.Text = i18n.GetTranslation(_label);
+            lblLabel.Text = Context.I18n.GetTranslation(_label);
 
             cbValue.Items.Clear();
             var enumType = _property.PropertyType.IsGenericType ? _property.PropertyType.GetGenericArguments()[0] : _property.PropertyType;
             if (_property.PropertyType.IsGenericType) cbValue.Items.Add(new EnumValue(null, ""));
-            foreach (var enumValue in Enum.GetValues(enumType)) cbValue.Items.Add(new EnumValue(enumValue, i18n.GetTranslation(enumType.Name + "." + enumValue.ToString())));
+            foreach (var enumValue in Enum.GetValues(enumType)) cbValue.Items.Add(new EnumValue(enumValue, Context.I18n.GetTranslation(enumType.Name + "." + enumValue.ToString())));
 
             _data = data;
             var value = _property.GetValue(data);

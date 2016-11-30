@@ -18,6 +18,8 @@ namespace F23Bag.AutomaticUI.Layouts
             _layoutProviders = layoutProviders;
         }
 
+        public Type SelectorType { get; private set; }
+
         protected bool IgnoreCloseBehavior { get; private set; }
 
         public IEnumerable<Layout> LoadSubLayout(Type dataType, bool ignoreCloseBehavior, bool ignoreSelector)
@@ -37,13 +39,17 @@ namespace F23Bag.AutomaticUI.Layouts
             if (!ignoreSelector)
             {
                 var selectorLayoutProvider = layoutProviders.FirstOrDefault(lp => typeof(ISelector<>).MakeGenericType(dataType).IsAssignableFrom(lp.LayoutFor));
-                layouts = selectorLayoutProvider?.GetLayouts(selectorLayoutProvider?.LayoutFor, layoutProviders);
+                layouts = selectorLayoutProvider?.GetLayouts(selectorLayoutProvider?.LayoutFor, layoutProviders).ToList();
+
+                if (layouts != null)
+                    foreach (var layout in layouts)
+                        layout.SelectorType = selectorLayoutProvider.LayoutFor;
             }
 
             var noLayout = layouts == null || !layouts.Any();
             if (noLayout)
             {
-                layouts = layoutProviders.FirstOrDefault(lp => lp.LayoutFor == dataType)?.GetLayouts(realDataType, layoutProviders);
+                layouts = layoutProviders.FirstOrDefault(lp => lp.LayoutFor == dataType)?.GetLayouts(realDataType, layoutProviders).ToList();
                 noLayout = layouts == null || !layouts.Any();
             }
 
@@ -52,7 +58,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
             if (layouts == null || !layouts.Any())
             {
-                var members = realDataType.GetMembers().Where(mb => !(mb is ConstructorInfo) && !(mb is FieldInfo) && mb.DeclaringType != typeof(object) && (!(mb is MethodInfo) || !((MethodInfo)mb).IsSpecialName)).OrderBy(mb => mb.Name).ToArray();
+                var members = realDataType.GetMembers().Where(mb => !(mb is ConstructorInfo) && !(mb is FieldInfo) && !(mb is EventInfo) && mb.DeclaringType != typeof(object) && (!(mb is MethodInfo) || !((MethodInfo)mb).IsSpecialName)).OrderBy(mb => mb.Name).ToArray();
                 layouts = new[] { new FlowLayout(layoutProviders, FlowDirectionEnum.Vertical, members.Select(mb => new OneMemberLayout(layoutProviders, mb, false, null, null))) };
             }
 

@@ -4,18 +4,17 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
     public partial class FlowControl : DataControl
     {
-        private readonly Func<Type, IAuthorization> _getAuthorization;
-
-        public FlowControl(FlowDirection flowDirection, Func<Type, IAuthorization> getAuthorization)
+        public FlowControl(Layout layout, WinformContext context, FlowDirection flowDirection)
+            : base(layout, context)
         {
             InitializeComponent();
             flowLayout.FlowDirection = flowDirection;
-            _getAuthorization = getAuthorization;
         }
 
         public string Label { get; set; }
@@ -31,13 +30,13 @@ namespace F23Bag.Winforms.Controls
             flowLayout.Controls.Add(ctrl);
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
             var oldData = data;
             if (Property != null)
             {
                 data = Property.GetValue(data);
-                lblTitle.Text = i18n.GetTranslation(Label);
+                lblTitle.Text = Context.I18n.GetTranslation(Label);
                 if (data == null) Property.SetValue(oldData, data = Activator.CreateInstance(Property.PropertyType));
             }
 
@@ -47,7 +46,7 @@ namespace F23Bag.Winforms.Controls
                 lblTitle.Visible = Parent is Form;
             }
 
-            foreach (var ctrl in flowLayout.Controls.OfType<DataControl>()) ctrl.Display(data, i18n, _getAuthorization);
+            foreach (var ctrl in flowLayout.Controls.OfType<DataControl>()) ctrl.Display(data);
         }
 
         private void FlowControl_Load(object sender, EventArgs e)
@@ -57,6 +56,8 @@ namespace F23Bag.Winforms.Controls
             else
                 ClientSize = new Size(flowLayout.Controls.OfType<Control>().Sum(c => c.Width) + 40, flowLayout.Controls.OfType<Control>().Max(c => c.Height) + 60);
             if (Parent is Form) Parent.ClientSize = new Size(ClientSize.Width, ClientSize.Height);
+
+            flowLayout.Dock = DockStyle.Fill;
         }
     }
 }

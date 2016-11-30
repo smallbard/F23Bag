@@ -1,6 +1,8 @@
-﻿namespace F23Bag.Domain
+﻿using System.ComponentModel;
+
+namespace F23Bag.Domain
 {
-    public interface ISelector<TData>
+    public interface ISelector<TData> : INotifyPropertyChanged
     {
         TData SelectedValue { get; set; }
     }

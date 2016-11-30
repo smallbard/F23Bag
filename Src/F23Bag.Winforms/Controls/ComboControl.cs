@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -13,16 +14,13 @@ namespace F23Bag.Winforms.Controls
         private readonly string _label;
         private object _data;
 
-        public ComboControl()
+        public ComboControl(Layout layout, WinformContext context, PropertyInfo property, string label, PropertyInfo itemsSource)
+            : base(layout, context)
         {
             InitializeComponent();
 
             cbValue.DropDownStyle = ComboBoxStyle.DropDownList;
-        }
 
-        public ComboControl(PropertyInfo property, string label, PropertyInfo itemsSource)
-            : this()
-        {
             DisplayedMember = property;
             _property = property;
             _label = label;
@@ -37,9 +35,9 @@ namespace F23Bag.Winforms.Controls
             }
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
-            lblLabel.Text = i18n.GetTranslation(_label);
+            lblLabel.Text = Context.I18n.GetTranslation(_label);
 
             cbValue.Items.Clear();
             foreach (var item in (System.Collections.IEnumerable)_itemsSource.GetValue(data)) cbValue.Items.Add(item);

@@ -12,16 +12,14 @@ namespace F23Bag.AutomaticUI
     public class UIEngine
     {
         private readonly IEnumerable<ILayoutProvider> _layoutProviders;
-        private readonly I18n _i18n;
         private readonly IEnumerable<IAuthorization> _authorizations;
         private readonly IUIBuilder _uibuilder;
 
-        public UIEngine(IEnumerable<ILayoutProvider> layoutProviders, I18n i18n, IEnumerable<IAuthorization> authorizations, IUIBuilder uiBuilder)
+        public UIEngine(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<IAuthorization> authorizations, Func<Func<Type, IAuthorization>, IUIBuilder> getUiBuilder)
         {
             _layoutProviders = layoutProviders ?? new ILayoutProvider[] { };
             _authorizations = authorizations ?? new IAuthorization[] { };
-            _i18n = i18n ?? new DefaultI18n();
-            _uibuilder = uiBuilder;
+            _uibuilder = getUiBuilder(GetAuthorization);
         }
 
         public void Display(object data)
@@ -36,7 +34,7 @@ namespace F23Bag.AutomaticUI
 
             var layouts = Layout.Load(data.GetType(), _layoutProviders);
             var layout = layouts.SkipWhile(l => l is DataGridLayout).FirstOrDefault() ?? layouts.First();
-            _uibuilder.Display(layout, data, label, _i18n, GetAuthorization);
+            _uibuilder.Display(layout, data, label);
         }
 
         public IAuthorization GetAuthorization(Type dataType)
@@ -48,15 +46,7 @@ namespace F23Bag.AutomaticUI
             }
 
             return new DefaultAuthorization(dataType);
-        }
-
-        private class DefaultI18n : I18n
-        {
-            public string GetTranslation(string message)
-            {
-                return message;
-            }
-        }
+        }      
 
         private class DefaultAuthorization : IAuthorization
         {

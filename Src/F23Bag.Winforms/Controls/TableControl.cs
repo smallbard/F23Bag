@@ -5,17 +5,16 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
     public partial class TableControl : DataControl
     {
-        private readonly Func<Type, IAuthorization> _getAuthorization;
-
-        public TableControl(Func<Type, IAuthorization> getAuthorization)
+        public TableControl(Layout layout, WinformContext context)
+            : base(layout, context)
         {
             InitializeComponent();
-            _getAuthorization = getAuthorization;
         }
 
         public string Label { get; set; }
@@ -37,13 +36,13 @@ namespace F23Bag.Winforms.Controls
             tableLayout.SetRowSpan(ctrl, rowSpan);
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
             var oldData = data;
             if (Property != null)
             {
                 data = Property.GetValue(data);
-                lblTitle.Text = i18n.GetTranslation(Label);
+                lblTitle.Text = Context.I18n.GetTranslation(Label);
                 if (data == null) Property.SetValue(oldData, data = Activator.CreateInstance(Property.PropertyType));
             }
 
@@ -56,7 +55,7 @@ namespace F23Bag.Winforms.Controls
             foreach (var ctrl in tableLayout.Controls.OfType<DataControl>())
             {
                 ctrl.Visible = true;
-                ctrl.Display(data, i18n, _getAuthorization);
+                ctrl.Display(data);
             }
         }
 
@@ -81,6 +80,8 @@ namespace F23Bag.Winforms.Controls
             tableLayout.Refresh();
             ClientSize = new Size(width, height);
             if (Parent is Form) Parent.ClientSize = new Size(ClientSize.Width + 20, ClientSize.Height + 20);
+
+            foreach (var ctrl in tableLayout.Controls.OfType<Control>()) ctrl.Dock = DockStyle.Fill;
         }
     }
 }

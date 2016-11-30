@@ -479,7 +479,11 @@ namespace F23Bag.Data
                     SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Not, SqlAstNode);
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("The unary operator '{0}' is not supported", u.NodeType));
+                    if (u.Operand.Type.IsEnum)
+                        Visit(u.Operand); // ignore convert to int
+                    else
+                        throw new NotSupportedException(string.Format("The unary operator '{0}' is not supported", u.NodeType));
+                    break;
             }
 
             return u;

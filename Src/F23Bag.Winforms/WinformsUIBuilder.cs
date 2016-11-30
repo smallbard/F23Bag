@@ -14,10 +14,12 @@ namespace F23Bag.Winforms
     public class WinformsUIBuilder : IUIBuilder
     {
         private bool _isApplicationLaunch;
+        private readonly WinformContext _context;
 
-        public WinformsUIBuilder(IEnumerable<IControlConvention> controlsConventions, bool isApplicationLaunch)
+        public WinformsUIBuilder(IEnumerable<IControlConvention> controlsConventions, bool isApplicationLaunch, Func<Type, object> resolve, I18n i18n, Func<Type, IAuthorization> getAuthorization)
         {
             ControlConventions = controlsConventions.OrderBy(c => c.GetType().Assembly == GetType().Assembly ? 1 : 0).ToList();
+            _context = new WinformContext(this, i18n, getAuthorization, resolve);
 
             if (_isApplicationLaunch = isApplicationLaunch)
             {
@@ -28,20 +30,24 @@ namespace F23Bag.Winforms
 
         public IEnumerable<IControlConvention> ControlConventions { get; private set; }
 
-        public void Display(Layout layout, object data, string label, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        public void Display(Layout layout, object data, string label)
         {
-            var control = GetDataControl(layout, data, i18n, getAuthorization);
+            var control = GetDataControl(layout, data);
             using (var form = new Form())
             {
                 form.Controls.Add(control);
                 form.AutoScroll = true;
                 form.SizeGripStyle = SizeGripStyle.Hide;
-                form.FormBorderStyle = FormBorderStyle.FixedSingle;
+                form.FormBorderStyle = FormBorderStyle.Sizable;
                 form.BackColor = System.Drawing.Color.White;
-                form.Text = i18n.GetTranslation(label);
+                form.Text = _context.I18n.GetTranslation(label);
 
                 form.Shown += (s, e) => form.Location = new Point((Screen.FromControl(form).WorkingArea.Width - form.Width) / 2, (Screen.FromControl(form).WorkingArea.Height - form.Height) / 2);
-                form.Load += (s, e) => control.Display(data, i18n, getAuthorization);
+                form.Load += (s, e) =>
+                {
+                    control.Display(data);
+                    control.Dock = DockStyle.Fill;
+                };
 
                 if (_isApplicationLaunch)
                 {
@@ -56,13 +62,13 @@ namespace F23Bag.Winforms
             }
         }
 
-        private DataControl GetDataControl(Layout layout, object data, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        private DataControl GetDataControl(Layout layout, object data)
         {
             if (layout is FlowLayout)
             {
                 var flowLayout = (FlowLayout)layout;
-                var flowControl = new FlowControl(flowLayout.FlowDirection == FlowDirectionEnum.Vertical ? FlowDirection.TopDown : FlowDirection.LeftToRight, getAuthorization);
-                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetDataControl(subLayout, data, i18n, getAuthorization));
+                var flowControl = new FlowControl(layout, _context, flowLayout.FlowDirection == FlowDirectionEnum.Vertical ? FlowDirection.TopDown : FlowDirection.LeftToRight);
+                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetDataControl(subLayout, data));
                 return flowControl;
             }
             else if (layout is OneMemberLayout)
@@ -74,14 +80,14 @@ namespace F23Bag.Winforms
                 if (property != null)
                 {
                     var idc = ControlConventions.FirstOrDefault(c => c.Accept(property, memberLayout));
-                    if (idc != null) return idc.GetControl(property, memberLayout);
+                    if (idc != null) return idc.GetControl(property, memberLayout, _context);
 
                     if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                     {
                         var dataGridLayout = layout.LoadSubLayout(property.PropertyType.GetGenericArguments()[0], true, true).FirstOrDefault(l => l is DataGridLayout);
                         if (dataGridLayout == null) throw new WinformsException("No datagrid layout for " + property.PropertyType.GetGenericArguments()[0].FullName);
 
-                        var dataGridControl = (DataGridControl)GetDataControl(dataGridLayout, data, i18n, getAuthorization);
+                        var dataGridControl = (DataGridControl)GetDataControl(dataGridLayout, data);
                         dataGridControl.Property = property;
                         dataGridControl.Label = memberLayout.Label;
 
@@ -94,7 +100,7 @@ namespace F23Bag.Winforms
 
                         var subLayout = layout.LoadSubLayout(valueType, true, isSelector).FirstOrDefault(l => !(l is DataGridLayout));
 
-                        var container = GetDataControl(subLayout, data, i18n, getAuthorization);
+                        var container = GetDataControl(subLayout, data);
                         if (container is FlowControl)
                         {
                             ((FlowControl)container).Property = property;
@@ -114,41 +120,41 @@ namespace F23Bag.Winforms
                     }
                 }
                 else if (method != null)
-                    return new MethodCallControl(memberLayout, method, memberLayout.HasCloseBehavior, this, memberLayout.Label, getAuthorization);
+                    return new MethodCallControl(memberLayout, _context, method, memberLayout.HasCloseBehavior, memberLayout.Label);
             }
             else if (layout is GridLayout)
             {
                 var gridLayout = (GridLayout)layout;
-                var tableControl = new TableControl(getAuthorization);
+                var tableControl = new TableControl(layout, _context);
 
                 foreach (var layoutCellPosition in gridLayout.LayoutCellPositions)
-                    tableControl.AddControl(GetDataControl(layoutCellPosition.Layout, data, i18n, getAuthorization), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
+                    tableControl.AddControl(GetDataControl(layoutCellPosition.Layout, data), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
 
                 return tableControl;
             }
             else if (layout is DataGridLayout)
             {
                 var dataGridLayout = (DataGridLayout)layout;
-                var dataGridControl = new DataGridControl(layout, this, dataGridLayout.OpenAction, getAuthorization);
+                var dataGridControl = new DataGridControl(layout, _context, dataGridLayout.OpenAction);
 
                 foreach (var subLayout in dataGridLayout.Columns)
                     if (subLayout.Member is PropertyInfo)
-                        dataGridControl.AddColumn((PropertyInfo)subLayout.Member, subLayout.IsEditable, i18n, subLayout.Label);
+                        dataGridControl.AddColumn((PropertyInfo)subLayout.Member, subLayout.IsEditable, subLayout.Label);
                     else if (subLayout.Member is MethodInfo)
-                        dataGridControl.AddColumn((MethodInfo)subLayout.Member, i18n, subLayout.Label);
-                foreach (var subLayout in dataGridLayout.Actions.Where(l => l.Member is MethodInfo)) dataGridControl.AddAction(subLayout, (MethodInfo)subLayout.Member, i18n, subLayout.Label);
+                        dataGridControl.AddColumn((MethodInfo)subLayout.Member, subLayout.Label);
+                foreach (var subLayout in dataGridLayout.Actions.Where(l => l.Member is MethodInfo)) dataGridControl.AddAction(subLayout, (MethodInfo)subLayout.Member, subLayout.Label);
 
                 return dataGridControl;
             }
             else if (layout is TabsLayout)
             {
                 var tabsLayout = (TabsLayout)layout;
-                var tabsControl = new TabsControl(getAuthorization);
-                foreach (var tab in tabsLayout.Tabs) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data, i18n, getAuthorization));
+                var tabsControl = new TabsControl(layout, _context);
+                foreach (var tab in tabsLayout.Tabs) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data));
                 return tabsControl;
             }
             else if (layout is TreeLayout)
-                return new TreeControl((TreeLayout)layout);
+                return new TreeControl((TreeLayout)layout, _context);
 
             throw new WinformsException("Layout not supported : " + layout.GetType().FullName);
         }

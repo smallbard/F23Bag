@@ -16,9 +16,9 @@ namespace F23Bag.Winforms.Conventions
             return (property.PropertyType == typeof(DateTime) || property.PropertyType == typeof(DateTime?)) && layout.ItemsSource == null;
         }
 
-        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout)
+        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout, WinformContext context)
         {
-            return new DateControl(property, layout.Label) { Enabled = layout.IsEditable };
+            return new DateControl(layout, context, property, layout.Label) { Enabled = layout.IsEditable };
         }
     }
 }

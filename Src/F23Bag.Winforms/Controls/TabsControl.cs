@@ -4,17 +4,16 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
 
 namespace F23Bag.Winforms.Controls
 {
     public partial class TabsControl : DataControl
     {
-        private readonly Func<Type, IAuthorization> _getAuthorization;
-
-        public TabsControl(Func<Type, IAuthorization> getAuthorization)
+        public TabsControl(Layout layout, WinformContext context)
+            : base(layout, context)
         {
             InitializeComponent();
-            _getAuthorization = getAuthorization;
         }
 
         public string Label { get; set; }
@@ -32,13 +31,13 @@ namespace F23Bag.Winforms.Controls
             tabs.TabPages.Add(tab);
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
             var oldData = data;
             if (Property != null)
             {
                 data = Property.GetValue(data);
-                lblTitle.Text = i18n.GetTranslation(Label);
+                lblTitle.Text = Context.I18n.GetTranslation(Label);
                 if (data == null) Property.SetValue(oldData, data = Activator.CreateInstance(Property.PropertyType));
             }
 
@@ -49,9 +48,9 @@ namespace F23Bag.Winforms.Controls
             }
             foreach (var tab in tabs.TabPages.OfType<TabPage>())
             {
-                tab.Text = i18n.GetTranslation(tab.Text);
+                tab.Text = Context.I18n.GetTranslation(tab.Text);
                 foreach (var ctrl in tab.Controls.OfType<DataControl>())
-                    ctrl.Display(data, i18n, _getAuthorization);
+                    ctrl.Display(data);
             }
         }
 
@@ -66,6 +65,8 @@ namespace F23Bag.Winforms.Controls
                 tabs.TabPages.OfType<TabPage>().SelectMany(tp => tp.Controls.OfType<Control>()).Max(c => c.Width) + 10,
                 tabs.TabPages.OfType<TabPage>().SelectMany(tp => tp.Controls.OfType<Control>()).Max(c => c.Height) + 40);
             if (Parent is Form) Parent.ClientSize = new Size(ClientSize.Width, ClientSize.Height);
+
+            tabs.Dock = DockStyle.Fill;
         }
     }
 }

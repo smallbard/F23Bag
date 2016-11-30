@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Windows.Forms;
 using F23Bag.Domain;
 using F23Bag.AutomaticUI;
+using F23Bag.AutomaticUI.Layouts;
+using System.ComponentModel;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -11,20 +13,25 @@ namespace F23Bag.Winforms.Controls
     {
         protected static readonly Color cstForeColor = Color.FromArgb(-16757865);
         protected static readonly Color cstBackColor = Color.White;
+        private readonly Layout _layout;
         private IHasValidation _dataWithValidation;
         private IHasInteractions _dataWithInteractions;
 
-        public DataControl()
+        public DataControl(Layout layout, WinformContext context)
         {
+            _layout = layout;
+            Context = context;
             BackColor = cstBackColor;
             ForeColor = cstForeColor;
         }
 
         public MemberInfo DisplayedMember { get; protected set; }
 
+        protected WinformContext Context { get; private set; }
+
         protected virtual PictureBox ValidationIcon { get { return null; } }
 
-        public void Display(object data, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        public void Display(object data)
         {
             if (data is IHasValidation && ValidationIcon != null)
             {
@@ -32,9 +39,23 @@ namespace F23Bag.Winforms.Controls
                 _dataWithValidation.ValidationInfoCreated += DataControl_ValidationInfoCreated;
             }
 
-            CustomDisplay(data, i18n);
+            if (_layout.SelectorType != null)
+            {
+                var realData = data;
+                data = Context.Resolve(_layout.SelectorType);
 
-            var authorization = getAuthorization(data.GetType());
+                ((INotifyPropertyChanged)data).PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == "SelectedValue")
+                    {
+                        // TODO : update realData!
+                    }
+                };
+            }
+
+            CustomDisplay(data);
+
+            var authorization = Context.GetAuthorization(data.GetType());
             Visible = authorization.IsVisible(data, DisplayedMember);
             if (DisplayedMember is PropertyInfo)
                 Enabled = Enabled && authorization.IsEditable(data, (PropertyInfo)DisplayedMember);
@@ -56,7 +77,7 @@ namespace F23Bag.Winforms.Controls
             base.Dispose(disposing);
         }
 
-        protected virtual void CustomDisplay(object data, I18n i18n)
+        protected virtual void CustomDisplay(object data)
         {
             throw new NotImplementedException();
         }

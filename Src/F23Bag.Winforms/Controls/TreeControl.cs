@@ -11,7 +11,8 @@ namespace F23Bag.Winforms.Controls
     {
         private readonly TreeLayout _treeLayout;
 
-        public TreeControl(TreeLayout treeLayout)
+        public TreeControl(TreeLayout treeLayout, WinformContext context)
+            : base(treeLayout, context)
         {
             InitializeComponent();
 
@@ -19,7 +20,7 @@ namespace F23Bag.Winforms.Controls
             _tree.BeforeExpand += Tree_BeforeExpand;
         }
 
-        protected override void CustomDisplay(object data, I18n i18n)
+        protected override void CustomDisplay(object data)
         {
             AddChildNode(_tree.Nodes, _treeLayout, data);
         }

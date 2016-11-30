@@ -17,7 +17,7 @@ namespace F23Bag.Tests
         public void FlowLayout()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForFlowLayout();
             engine.Display(data);
 
@@ -51,7 +51,7 @@ namespace F23Bag.Tests
         public void TabsLayout()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForTabsLayout();
             engine.Display(data);
 
@@ -88,7 +88,7 @@ namespace F23Bag.Tests
         public void GridLayout()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForGridLayout();
             engine.Display(data);
 
@@ -137,7 +137,7 @@ namespace F23Bag.Tests
         public void DataGridLayout()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForDataGridLayout();
             engine.Display(data);
 
@@ -163,7 +163,7 @@ namespace F23Bag.Tests
         public void TreeLayout()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForTreeLayout();
             engine.Display(data);
 
@@ -179,7 +179,7 @@ namespace F23Bag.Tests
         public void LayoutForBaseType()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectInheritsGridLayout();
             engine.Display(data);
 
@@ -232,7 +232,7 @@ namespace F23Bag.Tests
         public void LayoutForGenericType()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new GenericObject<int>();
             engine.Display(data);
 
@@ -244,7 +244,7 @@ namespace F23Bag.Tests
         public void LayoutForSelector()
         {
             var builder = new TestUIBuilder();
-            var engine = new UIEngine(GetLayoutProviders(), null, null, builder);
+            var engine = new UIEngine(GetLayoutProviders(), null, ga => builder);
             var data = new ObjectForSelectorParent();
             engine.Display(data);
 
@@ -280,7 +280,7 @@ namespace F23Bag.Tests
         {
             public Dictionary<object, Layout> Layouts { get; } = new Dictionary<object, Layout>();
 
-            public void Display(Layout layout, object data, string label, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+            public void Display(Layout layout, object data, string label)
             {
                 Layouts[data] = layout;
             }

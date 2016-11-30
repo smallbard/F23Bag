@@ -118,6 +118,7 @@
       <DependentUpon>TabsControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WinformContext.cs" />
     <Compile Include="WinformsException.cs" />
     <Compile Include="WinformsUIBuilder.cs" />
     <Service Include="{94E38DFF-614B-4cbd-B67C-F211BB35CE8B}" />

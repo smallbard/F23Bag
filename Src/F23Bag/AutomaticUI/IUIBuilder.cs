@@ -8,6 +8,6 @@ namespace F23Bag.AutomaticUI
     /// </summary>
     public interface IUIBuilder
     {
-        void Display(Layout layout, object data, string label, I18n i18n, Func<Type, IAuthorization> getAuthorization);
+        void Display(Layout layout, object data, string label);
     }
 }
