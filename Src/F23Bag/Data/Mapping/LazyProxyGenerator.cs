@@ -45,7 +45,7 @@ namespace F23Bag.Data.Mapping
                 {
                     if (invocation.Method.Name == "get_Id")
                     {
-                        invocation.ReturnValue = _objectId;
+                        invocation.ReturnValue = Convert.ChangeType(_objectId, invocation.Method.ReturnType);
                         return;
                     }
 

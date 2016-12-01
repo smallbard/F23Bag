@@ -32,7 +32,7 @@ namespace F23Bag.Winforms
 
         public void Display(Layout layout, object data, string label)
         {
-            var control = GetDataControl(layout, data);
+            var control = GetDataControl(layout, data, null);
             using (var form = new Form())
             {
                 form.Controls.Add(control);
@@ -62,13 +62,15 @@ namespace F23Bag.Winforms
             }
         }
 
-        private DataControl GetDataControl(Layout layout, object data)
+        private DataControl GetDataControl(Layout layout, object data, PropertyInfo ownerProperty)
         {
+            layout.OwnerProperty = ownerProperty;
+
             if (layout is FlowLayout)
             {
                 var flowLayout = (FlowLayout)layout;
                 var flowControl = new FlowControl(layout, _context, flowLayout.FlowDirection == FlowDirectionEnum.Vertical ? FlowDirection.TopDown : FlowDirection.LeftToRight);
-                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetDataControl(subLayout, data));
+                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetDataControl(subLayout, data, ownerProperty));
                 return flowControl;
             }
             else if (layout is OneMemberLayout)
@@ -87,7 +89,7 @@ namespace F23Bag.Winforms
                         var dataGridLayout = layout.LoadSubLayout(property.PropertyType.GetGenericArguments()[0], true, true).FirstOrDefault(l => l is DataGridLayout);
                         if (dataGridLayout == null) throw new WinformsException("No datagrid layout for " + property.PropertyType.GetGenericArguments()[0].FullName);
 
-                        var dataGridControl = (DataGridControl)GetDataControl(dataGridLayout, data);
+                        var dataGridControl = (DataGridControl)GetDataControl(dataGridLayout, data, property);
                         dataGridControl.Property = property;
                         dataGridControl.Label = memberLayout.Label;
 
@@ -100,7 +102,7 @@ namespace F23Bag.Winforms
 
                         var subLayout = layout.LoadSubLayout(valueType, true, isSelector).FirstOrDefault(l => !(l is DataGridLayout));
 
-                        var container = GetDataControl(subLayout, data);
+                        var container = GetDataControl(subLayout, data, isSelector ? ownerProperty : property);
                         if (container is FlowControl)
                         {
                             ((FlowControl)container).Property = property;
@@ -128,7 +130,7 @@ namespace F23Bag.Winforms
                 var tableControl = new TableControl(layout, _context);
 
                 foreach (var layoutCellPosition in gridLayout.LayoutCellPositions)
-                    tableControl.AddControl(GetDataControl(layoutCellPosition.Layout, data), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
+                    tableControl.AddControl(GetDataControl(layoutCellPosition.Layout, data, ownerProperty), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
 
                 return tableControl;
             }
@@ -150,7 +152,7 @@ namespace F23Bag.Winforms
             {
                 var tabsLayout = (TabsLayout)layout;
                 var tabsControl = new TabsControl(layout, _context);
-                foreach (var tab in tabsLayout.Tabs) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data));
+                foreach (var tab in tabsLayout.Tabs) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data, ownerProperty));
                 return tabsControl;
             }
             else if (layout is TreeLayout)

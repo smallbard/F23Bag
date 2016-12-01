@@ -168,13 +168,16 @@ namespace F23Bag.Winforms.Controls
                 var sortableCollection = ((BindingSource)gridView.DataSource).DataSource as IQueryable;
                 if (sortableCollection != null)
                 {
-                    _sortDirection = _sortDirection == ListSortDirection.Ascending || _sortDirection.HasValue ? ListSortDirection.Descending : ListSortDirection.Ascending;
+                    _sortDirection = _sortDirection == ListSortDirection.Ascending || !_sortDirection.HasValue ? ListSortDirection.Descending : ListSortDirection.Ascending;
                     var methodName = "OrderBy";
                     if (_sortDirection == ListSortDirection.Descending) methodName = "OrderByDescending";
 
-                    var o = Expression.Parameter(sortableCollection.GetType().GetGenericArguments()[0]);
+                    var entityType = sortableCollection.GetType().GetGenericArguments()[0];
+                    var columnProperty = (PropertyInfo)gridView.Columns[e.ColumnIndex].Tag;
+                    var o = Expression.Parameter(entityType);
                     ((BindingSource)gridView.DataSource).DataSource = typeof(Queryable).GetMethods().First(m => m.Name == methodName && m.GetParameters().Length == 2)
-                        .Invoke(null, new object[] { sortableCollection, Expression.Lambda(Expression.MakeMemberAccess(o, (PropertyInfo)gridView.Columns[e.ColumnIndex].Tag), o) });
+                        .MakeGenericMethod(entityType, columnProperty.PropertyType)
+                        .Invoke(null, new object[] { sortableCollection, Expression.Lambda(Expression.MakeMemberAccess(o, columnProperty), o) });
                 }
             }
             else if (e.RowIndex > -1 && e.ColumnIndex > -1 && gridView.Columns[e.ColumnIndex].Tag is MethodInfo)

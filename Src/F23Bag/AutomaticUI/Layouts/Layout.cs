@@ -20,6 +20,11 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public Type SelectorType { get; private set; }
 
+        /// <summary>
+        /// Get or set the real property in case of a selector.
+        /// </summary>
+        public PropertyInfo OwnerProperty { get; set; }
+
         protected bool IgnoreCloseBehavior { get; private set; }
 
         public IEnumerable<Layout> LoadSubLayout(Type dataType, bool ignoreCloseBehavior, bool ignoreSelector)

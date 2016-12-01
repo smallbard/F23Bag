@@ -34,9 +34,16 @@ namespace F23Bag.SqlServer.Tests
             if (!EnableTests) return;
 
             ExecuteNonQuery("CREATE TABLE OBJET1_BIS(ID INTEGER NOT NULL IDENTITY PRIMARY KEY, NAME NVARCHAR(100), IDFK_OBJET2 INTEGER)");
-            foreach (var sql in Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet2)), new DefaultSqlMapping(null))) ExecuteNonQuery(sql);
-            foreach (var sql in Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet3)), new DefaultSqlMapping(null))) ExecuteNonQuery(sql);
-            foreach (var sql in Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet1)), new DefaultSqlMapping(null))) ExecuteNonQuery(sql);
+
+            var objectsScripts = new List<string>();
+            var constraintsAndAlter = new List<string>();
+
+            Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet2)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
+            Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet3)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
+            Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(Objet1)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
+
+            foreach (var sql in objectsScripts) ExecuteNonQuery(sql);
+            foreach (var sql in constraintsAndAlter) ExecuteNonQuery(sql);
 
             ExecuteNonQuery("INSERT INTO OBJET2(VALUE2) VALUES(1.2)");
             ExecuteNonQuery("INSERT INTO OBJET2(VALUE2) VALUES(2.2)");

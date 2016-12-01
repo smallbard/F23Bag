@@ -1,4 +1,5 @@
 ﻿using F23Bag.Data.DML;
+using F23Bag.Domain;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -150,7 +151,7 @@ namespace F23Bag.Data
                 IdColumnName = _sqlMapping.GetColumnName(idProperty)
             };
 
-            foreach (var property in o.GetType().GetProperties())
+            foreach (var property in o.GetType().GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null))
             {
                 if (property.Name == "Id") continue;
                 var value = property.GetValue(o);

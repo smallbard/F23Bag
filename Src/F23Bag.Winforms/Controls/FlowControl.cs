@@ -52,9 +52,9 @@ namespace F23Bag.Winforms.Controls
         private void FlowControl_Load(object sender, EventArgs e)
         {
             if (flowLayout.FlowDirection == FlowDirection.TopDown)
-                ClientSize = new Size(flowLayout.Controls.OfType<Control>().Max(c => c.Width) + 20, flowLayout.Controls.OfType<Control>().Sum(c => c.Height + 20));
+                ClientSize = new Size(flowLayout.Controls.OfType<Control>().Max(c => c.Width) + 15, flowLayout.Controls.OfType<Control>().Sum(c => c.Height + 20));
             else
-                ClientSize = new Size(flowLayout.Controls.OfType<Control>().Sum(c => c.Width) + 40, flowLayout.Controls.OfType<Control>().Max(c => c.Height) + 60);
+                ClientSize = new Size(flowLayout.Controls.OfType<Control>().Sum(c => c.Width) + 20, flowLayout.Controls.OfType<Control>().Max(c => c.Height) + 15);
             if (Parent is Form) Parent.ClientSize = new Size(ClientSize.Width, ClientSize.Height);
 
             flowLayout.Dock = DockStyle.Fill;

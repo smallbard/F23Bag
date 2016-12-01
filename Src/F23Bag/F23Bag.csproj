@@ -60,6 +60,7 @@
     <Compile Include="AutomaticUI\Layouts\OneMemberLayout.cs" />
     <Compile Include="AutomaticUI\Layouts\TabsLayout.cs" />
     <Compile Include="AutomaticUI\Layouts\TreeLayout.cs" />
+    <Compile Include="Data\DatabaseCreation.cs" />
     <Compile Include="Data\DDL\DDLStatement.cs" />
     <Compile Include="Data\DDL\DDLStatementType.cs" />
     <Compile Include="Data\DDLTranslatorBase.cs" />
@@ -72,7 +73,7 @@
     <Compile Include="Domain\IHasInteractions.cs" />
     <Compile Include="Domain\IHasValidation.cs" />
     <Compile Include="Domain\InteractionEventArgs.cs" />
-    <Compile Include="Domain\IDataAccess.cs" />
+    <Compile Include="Domain\IQueryFactory.cs" />
     <Compile Include="Domain\ISelector.cs" />
     <Compile Include="Domain\MandatoryAttribute.cs" />
     <Compile Include="Domain\MaxLengthAttribute.cs" />

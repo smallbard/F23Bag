@@ -28,6 +28,8 @@ namespace F23Bag.Data
             _expression = expression;
         }
 
+        public event EventHandler<T> ObjectLoaded;
+
         Expression IQueryable.Expression
         {
             get { return _expression; }
@@ -45,17 +47,24 @@ namespace F23Bag.Data
 
         public IEnumerator<T> GetEnumerator()
         {
-            return ((IEnumerable<T>)_provider.Execute(_expression)).GetEnumerator();
+            var enumerator = ((IEnumerable<T>)_provider.Execute(_expression)).GetEnumerator();
+            if (enumerator is ObjectReader<T>.Enumerator) ((ObjectReader<T>.Enumerator)enumerator).ObjectLoaded += (s, e) => OnObjectLoaded(e);
+            return enumerator;
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return ((IEnumerable)_provider.Execute(_expression)).GetEnumerator();
+            return GetEnumerator();
         }
 
         public override string ToString()
         {
             return _provider.GetQueryText(_expression);
+        }
+
+        protected virtual void OnObjectLoaded(T o)
+        {
+            ObjectLoaded?.Invoke(this, o);
         }
     }
 }

@@ -32,7 +32,7 @@ namespace F23Bag.Data
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<T>, IEnumerator, IDisposable
+        public class Enumerator : IEnumerator<T>, IEnumerator, IDisposable
         {
             private static readonly MethodInfo _changeTypeMethod = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type) });
             private readonly DbConnection _connection;
@@ -114,6 +114,8 @@ namespace F23Bag.Data
                 }
             }
 
+            public event EventHandler<T> ObjectLoaded;
+
             public T Current
             {
                 get { return _current; }
@@ -142,6 +144,7 @@ namespace F23Bag.Data
                     if (_reader.Read())
                     {
                         _current = _createNewAnonymousType(_reader);
+                        OnObjectLoaded(_current);
                         return true;
                     }
 
@@ -167,6 +170,7 @@ namespace F23Bag.Data
                 else
                     return false;
 
+                OnObjectLoaded(_current);
                 return true;
             }
 
@@ -177,6 +181,11 @@ namespace F23Bag.Data
                 _reader.Dispose();
                 _command.Dispose();
                 _connection.Dispose();
+            }
+
+            protected virtual void OnObjectLoaded(T o)
+            {
+                ObjectLoaded?.Invoke(this, o);
             }
         }
     }

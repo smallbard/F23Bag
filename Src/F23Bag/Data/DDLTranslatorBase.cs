@@ -5,12 +5,13 @@ using System.Text;
 using F23Bag.Data.DDL;
 using F23Bag.Data.DML;
 using System.Reflection;
+using F23Bag.Domain;
 
 namespace F23Bag.Data
 {
     public abstract class DDLTranslatorBase : IDDLTranslator
     {
-        public virtual IEnumerable<string> Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping)
+        public virtual void Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping, List<string> objects, List<string> constraintsAndAlter)
         {
             if (ddlStatement.StatementType == DDLStatementType.CreateTable)
             {
@@ -18,22 +19,20 @@ namespace F23Bag.Data
 
                 var tableName = ((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.ElementType)).IdentifierName;
 
-                var sqls = new List<StringBuilder>();
                 var sql = new StringBuilder("CREATE TABLE ").Append(tableName).Append('(');
-                sqls.Add(sql);
-
-                foreach (var property in ddlStatement.ElementType.GetProperties())
+                foreach (var property in ddlStatement.ElementType.GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null))
                 {
                     bool isAlter;
                     var columnDefinition = GetColumnDefinition(sqlMapping, property, out isAlter);
                     if (isAlter)
-                        sqls.Add(columnDefinition);
+                        constraintsAndAlter.Add(columnDefinition.ToString());
                     else
                         sql.Append(columnDefinition).Append(',');
                 }
-
                 sql.Remove(sql.Length - 1, 1).Append(')');
-                return sqls.Select(sb => sb.ToString());
+
+                objects.Add(sql.ToString());
+                return;
             }
             else if (ddlStatement.StatementType == DDLStatementType.AddColumn)
             {
@@ -42,9 +41,10 @@ namespace F23Bag.Data
                 bool isAlter;
                 var columnDefinition = GetColumnDefinition(sqlMapping, ddlStatement.Property, out isAlter);
                 if (isAlter)
-                    return new[] { columnDefinition.ToString() };
+                    constraintsAndAlter.Add(columnDefinition.ToString());
                 else
-                    return new[] { new StringBuilder("ALTER TABLE ").Append(((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.Property.DeclaringType)).IdentifierName).Append(" ADD COLUMN ").Append(columnDefinition).ToString() };
+                    constraintsAndAlter.Add(new StringBuilder("ALTER TABLE ").Append(((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.Property.DeclaringType)).IdentifierName).Append(" ADD COLUMN ").Append(columnDefinition).ToString());
+                return;
             }
 
             throw new NotImplementedException();

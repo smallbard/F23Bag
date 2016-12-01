@@ -5,6 +5,6 @@ namespace F23Bag.Data
 {
     public interface IDDLTranslator
     {
-        IEnumerable<string> Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping);
+        void Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping, List<string> objects, List<string> constraintsAndAlter);
     }
 }

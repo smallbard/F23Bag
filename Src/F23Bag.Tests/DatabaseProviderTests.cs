@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using F23Bag.Data;
+using System;
 
 namespace F23Bag.Tests
 {
@@ -13,7 +14,7 @@ namespace F23Bag.Tests
 
         public IQueryable<T> GetQuery<T>()
         {
-            return new Query<T>(new DbQueryProvider(Provider, new DefaultSqlMapping(null), null, null));
+            return new Query<T>(new DbQueryProvider(Provider, new DefaultSqlMapping(null), null, t => Activator.CreateInstance(t)));
         }
 
         [TestMethod]

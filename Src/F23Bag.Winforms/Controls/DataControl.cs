@@ -44,12 +44,11 @@ namespace F23Bag.Winforms.Controls
                 var realData = data;
                 data = Context.Resolve(_layout.SelectorType);
 
+                ((PropertyInfo)DisplayedMember).SetValue(data, _layout.OwnerProperty.GetValue(realData));
+
                 ((INotifyPropertyChanged)data).PropertyChanged += (s, e) =>
                 {
-                    if (e.PropertyName == "SelectedValue")
-                    {
-                        // TODO : update realData!
-                    }
+                    if (e.PropertyName == "SelectedValue") _layout.OwnerProperty.SetValue(realData, ((PropertyInfo)DisplayedMember).GetValue(data));
                 };
             }
 

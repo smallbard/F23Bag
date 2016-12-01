@@ -64,7 +64,7 @@ namespace F23Bag.Winforms.Controls
                 Action act = () =>
                 {
                     var value = _property.GetValue(_data);
-                    cbValue.SelectedItem = value == null ? null : cbValue.Items.OfType<EnumValue>().First(ev => ev.Value.Equals(value));
+                    cbValue.SelectedItem = value == null ? null : cbValue.Items.OfType<EnumValue>().First(ev => object.Equals(ev.Value, value));
                 };
 
                 if (InvokeRequired)
@@ -77,7 +77,7 @@ namespace F23Bag.Winforms.Controls
         private void CbValue_SelectedValueChanged(object sender, EventArgs e)
         {
             var selectedValue = (EnumValue)cbValue.SelectedItem;
-            _property.SetValue(_data, selectedValue.Value);
+            _property.SetValue(_data, selectedValue?.Value);
         }
 
         private class EnumValue

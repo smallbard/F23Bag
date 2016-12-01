@@ -71,10 +71,18 @@ namespace F23Bag.Winforms.Controls
             var parameters = new List<object>();
             foreach (var parameter in method.GetParameters())
             {
-                var argument = Activator.CreateInstance(parameter.ParameterType);
+                object argument = null;
+                if (parameter.ParameterType.IsInterface || parameter.ParameterType.Assembly.FullName.StartsWith("F23Bag"))
+                {
+                    argument = context.Resolve(parameter.ParameterType);
+                }
+                else
+                {
+                    argument = Activator.CreateInstance(parameter.ParameterType);
 
-                var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
-                builder.Display(layout.LoadSubLayout(parameter.ParameterType, false, false).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name);
+                    var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
+                    builder.Display(layout.LoadSubLayout(parameter.ParameterType, false, false).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(), argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name);
+                }
                 parameters.Add(argument);
             }
 
