@@ -145,7 +145,7 @@ namespace F23Bag.Data.Mapping
                         var idSelectIndex = -1;
                         if (!isCollection)
                             for (var i = selectIndex; i < request.Select.Count; i++)
-                                if (request.Select[selectIndex].Property == elementIdProperty)
+                                if (request.Select[i].Property == elementIdProperty)
                                 {
                                     idSelectIndex = i;
                                     break;
@@ -153,7 +153,7 @@ namespace F23Bag.Data.Mapping
 
                         if (isCollection || !DBNull.Value.Equals(reader[idSelectIndex]))
                         {
-                            element = isCollection ? new CollectionActivator().CreateInstance(lpi.Property.PropertyType) : Activator.CreateInstance(lpi.Property.PropertyType);
+                            element = isCollection ? new CollectionActivator().CreateInstance(lpi.Property.PropertyType) : _queryProvider.Resolve(lpi.Property.PropertyType);
                             lpi.Property.SetValue(o, element);
                             if (isCollection)
                             {
