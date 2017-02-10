@@ -18,7 +18,8 @@ namespace F23Bag.AutomaticUI.Layouts
         /// </summary>
         /// <param name="dataType">Type corresponding to the layouts (equals or inherits LayoutFor).</param>
         /// <param name="layoutProviders">List of all the layout providers.</param>
+        /// <param name="options">Dictionary of options for the layout definition.</param>
         /// <returns>List of layouts for dataType.</returns>
-        IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders);
+        IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options);
     }
 }

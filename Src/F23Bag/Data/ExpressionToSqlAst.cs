@@ -13,6 +13,7 @@ namespace F23Bag.Data
         private readonly ISQLMapping _sqlMapping;
         private readonly IEnumerable<IExpresstionToSqlAst> _customConverters;
         private readonly Mapper _mapper;
+        private readonly Dictionary<PropertyInfo, PropertyInfo> _equivalentProperties;
         private DMLNode _san;
         private DMLNode SqlAstNode
         {
@@ -30,6 +31,7 @@ namespace F23Bag.Data
             _sqlMapping = sqlMapping;
             _customConverters = customConverters ?? new IExpresstionToSqlAst[] { };
             _mapper = mapper;
+            _equivalentProperties = new Dictionary<PropertyInfo, PropertyInfo>();
         }
 
         internal Request Translate(Expression expression)
@@ -120,7 +122,7 @@ namespace F23Bag.Data
                     if (mba == null) throw new NotSupportedException("Insert or Update not supported : " + mba.ToString());
 
                     Visit(mba.Expression);
-                    _request.UpdateOrInsert.Add(new UpdateOrInsertInfo(SqlAstNode, (ColumnAccess)_sqlMapping.GetSqlEquivalent(_request, _request.FromAlias, (PropertyInfo)mba.Member, false)));
+                    _request.UpdateOrInsert.Add(new UpdateOrInsertInfo(SqlAstNode, (ColumnAccess)_sqlMapping.GetSqlEquivalent(_request, _request.FromAlias, GetRealProperty((PropertyInfo)mba.Member), false)));
                 }
             }
             else
@@ -259,7 +261,7 @@ namespace F23Bag.Data
                     var isCollection = property.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType);
                     if (m.Method.Name == "Select" && isCollection)
                         throw new SQLException("Must use SelectMany for " + select.ToString());
-                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, _request.GetAliasFor(select.Parameters[0]), property, _inOr), null));
+                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, _request.GetAliasFor(select.Parameters[0]), GetRealProperty(property), _inOr), null));
 
                     if (isCollection)
                         _request.ProjectionType = property.PropertyType.GetGenericArguments()[0];
@@ -269,42 +271,46 @@ namespace F23Bag.Data
                 else if (select.Body is NewExpression)
                 {
                     var newExp = (NewExpression)select.Body;
-
-                    for (var i = 0; i < newExp.Arguments.Count; i++)
+                    for (var i = 0; i < newExp.Arguments.Count; i++) VisitNewExpressionArgument(newExp, i, newExp.Arguments[i]);
+                    _request.ProjectionType = newExp.Type;
+                }
+                else if (select.Body is MemberInitExpression)
+                {
+                    var mbInit = (MemberInitExpression)select.Body;
+                    foreach (var binding in mbInit.Bindings)
                     {
-                        if (newExp.Arguments[i] is ConstantExpression)
-                        {
-                            Visit(newExp.Arguments[i]);
-                            _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
-                            continue;
-                        }
+                        if (!(binding is MemberAssignment)) throw new NotSupportedException("Only assignment are supported : " + binding.ToString());
+                        var mbAssign = (MemberAssignment)binding;
 
-                        if (newExp.Arguments[i] is MemberExpression)
+                        if (mbAssign.Expression is MemberExpression)
                         {
-                            var arg = (MemberExpression)newExp.Arguments[i];
-                            if (!(arg.Member is PropertyInfo)) throw new NotSupportedException("Only property access are supported : " + arg.ToString());
+                            var mbAccess = (MemberExpression)mbAssign.Expression;
+                            AddEquivalentProperty((PropertyInfo)mbAccess.Member, (PropertyInfo)mbAssign.Member);
 
-                            if (arg.Member.Name == "Key" && arg.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(arg.Member.DeclaringType.GetGenericTypeDefinition()))
-                                foreach (var grp in _request.GroupBy) _request.Select.Add(new SelectInfo(grp, (PropertyInfo)newExp.Members[i]));
-                            else
+                            var alias = _request.FromAlias;
+                            var expression = mbAccess.Expression as MemberExpression;
+                            while (expression != null)
                             {
-                                _sqlMapping.AddEquivalentProperty((PropertyInfo)arg.Member, (PropertyInfo)newExp.Members[i]);
-                                _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, _request.FromAlias, (PropertyInfo)arg.Member, _inOr), (PropertyInfo)newExp.Members[i]));
+                                alias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)expression.Member), _inOr);
+                                expression = expression.Expression as MemberExpression;
                             }
-                        }
-                        else if (newExp.Arguments[i] is MethodCallExpression)
-                        {
-                            var arg = (MethodCallExpression)newExp.Arguments[i];
-                            if (!(arg.Method.DeclaringType == typeof(Enumerable))) throw new NotSupportedException("Only method from Enumerable are supported : " + arg.ToString());
 
-                            Visit(arg);
-                            _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
+                            _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member));
+                        }
+                        else if (mbAssign.Expression is ConstantExpression)
+                            _request.Select.Add(new SelectInfo(new DML.Constant(((ConstantExpression)mbAssign.Expression).Value), (PropertyInfo)mbAssign.Member));
+                        else if (mbAssign.Expression is MethodCallExpression && ((MethodCallExpression)mbAssign.Expression).Method.DeclaringType.Equals(typeof(Queryable)))
+                        {
+                            Visit(mbAssign.Expression);
+                            var subRequest = _request;
+                            _request = _request.ParentRequest;
+                            _request.Select.Add(new SelectInfo(subRequest, (PropertyInfo)mbAssign.Member));
                         }
                         else
-                            throw new NotSupportedException("Only property access and method from Enumerable are supported : " + newExp.Arguments[i].ToString());
-                    }
+                            throw new NotImplementedException();
 
-                    _request.ProjectionType = newExp.Type;
+                    }
+                    _request.ProjectionType = mbInit.NewExpression.Type;
                 }
                 else
                     throw new NotSupportedException("No supported select : " + select.ToString());
@@ -331,7 +337,7 @@ namespace F23Bag.Data
                         var arg = newExp.Arguments[i] as MemberExpression;
                         if (arg == null || !(arg.Member is PropertyInfo)) throw new NotSupportedException("Only property access are supported : " + newExp.Arguments[i].ToString());
 
-                        _sqlMapping.AddEquivalentProperty((PropertyInfo)arg.Member, (PropertyInfo)newExp.Members[i]);
+                        AddEquivalentProperty((PropertyInfo)arg.Member, (PropertyInfo)newExp.Members[i]);
                         Visit(arg);
                         _request.GroupBy.Add(SqlAstNode);
                     }
@@ -402,11 +408,68 @@ namespace F23Bag.Data
             return m;
         }
 
+        private void VisitNewExpressionArgument(NewExpression newExp, int i, Expression newExpArgument)
+        {
+            if (newExpArgument is ConstantExpression)
+            {
+                Visit(newExpArgument);
+                _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
+                return;
+            }
+
+            if (newExpArgument is MemberExpression)
+            {
+                var arg = (MemberExpression)newExpArgument;
+                if (!(arg.Member is PropertyInfo)) throw new NotSupportedException("Only property access are supported : " + arg.ToString());
+
+                if (arg.Member.Name == "Key" && arg.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(arg.Member.DeclaringType.GetGenericTypeDefinition()))
+                    foreach (var grp in _request.GroupBy) _request.Select.Add(new SelectInfo(grp, (PropertyInfo)newExp.Members[i]));
+                else
+                {
+                    AddEquivalentProperty((PropertyInfo)arg.Member, (PropertyInfo)newExp.Members[i]);
+
+                    var alias = _request.FromAlias;
+                    var expression = arg.Expression as MemberExpression;
+                    while (expression != null)
+                    {
+                        alias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)expression.Member), _inOr);
+                        expression = expression.Expression as MemberExpression;
+                    }
+
+                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)arg.Member), _inOr), (PropertyInfo)newExp.Members[i]));
+                }
+            }
+            else if (newExpArgument is MethodCallExpression)
+            {
+                var arg = (MethodCallExpression)newExpArgument;
+                if (arg.Method.DeclaringType == typeof(Queryable))
+                {
+                    Visit(arg);
+                    _request.ParentRequest.Select.Add(new SelectInfo(_request, (PropertyInfo)newExp.Members[i]));
+                    _request = _request.ParentRequest;
+                }
+                else
+                {
+                    if (!(arg.Method.DeclaringType == typeof(Enumerable)))
+                        throw new NotSupportedException("Only method from Enumerable and queryable are supported : " + arg.ToString());
+                    Visit(arg);
+                    _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
+                }
+            }
+            else if (newExpArgument is NewExpression)
+            {
+                var arg = (NewExpression)newExpArgument;
+                for (var j = 0; j < arg.Arguments.Count; j++) VisitNewExpressionArgument(arg, j, arg.Arguments[j]);
+            }
+            else
+                throw new NotSupportedException("Only property access and method from Enumerable are supported : " + newExp.Arguments[i].ToString());
+        }
+
         private Expression VisitQueryableExtensionMethodCall(MethodCallExpression m)
         {
             Visit(m.Arguments[0]);
 
-            if (m.Method.Name == "EagerLoad" || m.Method.Name == "LazyLoad")
+            if (m.Method.Name == "EagerLoad" || m.Method.Name == "LazyLoad" || m.Method.Name == "BatchLazyLoad")
                 _mapper.LoadingPropertyInfos.Add(LoadingPropertyInfo.FromExpression(m));
             else if (m.Method.Name == "DontLoad")
             {
@@ -470,6 +533,17 @@ namespace F23Bag.Data
                 throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
         }
 
+        private void AddEquivalentProperty(PropertyInfo original, PropertyInfo equivalentProperty)
+        {
+            _equivalentProperties[equivalentProperty] = original;
+        }
+
+        private PropertyInfo GetRealProperty(PropertyInfo property)
+        {
+            if (!_equivalentProperties.ContainsKey(property)) return property;
+            return GetRealProperty(_equivalentProperties[property]);
+        }
+
         protected override Expression VisitUnary(System.Linq.Expressions.UnaryExpression u)
         {
             switch (u.NodeType)
@@ -477,6 +551,9 @@ namespace F23Bag.Data
                 case ExpressionType.Not:
                     Visit(u.Operand);
                     SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Not, SqlAstNode);
+                    break;
+                case ExpressionType.Convert:
+                    Visit(u.Operand);
                     break;
                 default:
                     if (u.Operand.Type.IsEnum)
@@ -554,6 +631,20 @@ namespace F23Bag.Data
             return b;
         }
 
+        protected override Expression VisitConditional(System.Linq.Expressions.ConditionalExpression node)
+        {
+            Visit(node.Test);
+            var condition = SqlAstNode;
+            Visit(node.IfTrue);
+            var thenExpression = SqlAstNode;
+            Visit(node.IfFalse);
+            var elseExpression = SqlAstNode;
+
+            SqlAstNode = new DML.ConditionalExpression(condition, thenExpression, elseExpression);
+
+            return node;
+        }
+
         protected override Expression VisitConstant(ConstantExpression c)
         {
             var q = c.Value as IQueryable;
@@ -581,7 +672,7 @@ namespace F23Bag.Data
             if (m.Member.Name == "Key" && m.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Member.DeclaringType.GetGenericTypeDefinition()))
                 SqlAstNode = _request.GroupBy[0];
             else
-                SqlAstNode = _sqlMapping.GetSqlEquivalent(_request, (AliasDefinition)SqlAstNode, (PropertyInfo)m.Member, _inOr);
+                SqlAstNode = _sqlMapping.GetSqlEquivalent(_request, (AliasDefinition)SqlAstNode, GetRealProperty((PropertyInfo)m.Member), _inOr);
             return m;
         }
 

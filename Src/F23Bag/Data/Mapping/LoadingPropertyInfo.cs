@@ -10,20 +10,26 @@ namespace F23Bag.Data.Mapping
     {
         private string _asString;
 
-        private LoadingPropertyInfo(PropertyInfo property, bool isLazyLoading)
+        private LoadingPropertyInfo(PropertyInfo property, LazyLoadingType lazyLoadingType)
         {
             if ((!property.PropertyType.IsClass && !property.PropertyType.IsInterface) || property.PropertyType == typeof(string)) throw new NotSupportedException("LazyLoad and EagerLoad are not available for simple types : " + property.Name);
             if (property.GetGetMethod() == null || property.GetSetMethod() == null) throw new NotSupportedException("LazyLoad and EagerLoad need a property with public get and public set : " + property.Name);
-            if (IsLazyLoading && (!property.GetGetMethod().IsVirtual || !property.GetSetMethod().IsVirtual)) throw new NotSupportedException("LazyLoad need a virtual property : " + property.Name);
 
             Property = property;
-            IsLazyLoading = isLazyLoading;
+            LazyLoadingType = lazyLoadingType;
             SubLoadingPropertyInfo = new List<Mapping.LoadingPropertyInfo>();
+            var pac = new PropertyAccessorCompiler(property);
+            SetPropertyValue = pac.SetPropertyValue;
+            GetPropertyValue = pac.GetPropertyValue;
         }
 
         public PropertyInfo Property { get; private set; }
 
-        public bool IsLazyLoading { get; private set; }
+        public Action<object, object> SetPropertyValue { get; private set; }
+
+        public Func<object,object> GetPropertyValue { get; private set; }
+
+        public LazyLoadingType LazyLoadingType { get; private set; }
 
         public List<LoadingPropertyInfo> SubLoadingPropertyInfo { get; private set; }
 
@@ -57,12 +63,12 @@ namespace F23Bag.Data.Mapping
 
         public static LoadingPropertyInfo FromExpression(MethodCallExpression expression)
         {
-            var isLazyLoading = expression.Method.Name == "LazyLoad";
-
             var propertyAccess = ((LambdaExpression)ExpressionToSqlAst.StripQuotes(expression.Arguments[1])).Body as MemberExpression;
             if (propertyAccess == null) throw new NotSupportedException("LazyLoad and EagerLoad are available for property only : " + expression.ToString());
 
-            return FromExpression(expression, isLazyLoading, propertyAccess);
+            var lazyLoadingType = expression.Method.Name == "LazyLoad" ? LazyLoadingType.Simple : (expression.Method.Name == "BatchLazyLoad" ? LazyLoadingType.Batch : LazyLoadingType.None);
+
+            return FromExpression(expression, lazyLoadingType, propertyAccess);
         }
 
         public static void RegroupLoadingInfo(List<LoadingPropertyInfo> infos)
@@ -80,21 +86,28 @@ namespace F23Bag.Data.Mapping
             }
         }
 
-        private static LoadingPropertyInfo FromExpression(MethodCallExpression expression, bool isLazyLoading, MemberExpression propertyAccess)
+        private static LoadingPropertyInfo FromExpression(MethodCallExpression expression, LazyLoadingType lazyLoadingType, MemberExpression propertyAccess)
         {
             var property = propertyAccess.Member as PropertyInfo;
             if (property == null) throw new NotSupportedException("LazyLoad and EagerLoad are available for property only : " + expression.ToString());
 
             if (propertyAccess.Expression is ParameterExpression)
-                return new LoadingPropertyInfo(property, isLazyLoading);
+                return new LoadingPropertyInfo(property, lazyLoadingType);
             else if (propertyAccess.Expression is MethodCallExpression && ((MethodCallExpression)propertyAccess.Expression).Method.Name == "First" && ((MethodCallExpression)propertyAccess.Expression).Arguments[0] is MemberExpression)
             {
-                var lpi = FromExpression(expression, isLazyLoading, (MemberExpression)((MethodCallExpression)propertyAccess.Expression).Arguments[0]);
-                lpi.SubLoadingPropertyInfo.Add(new LoadingPropertyInfo(property, isLazyLoading) { Parent = lpi });
+                var lpi = FromExpression(expression, lazyLoadingType, (MemberExpression)((MethodCallExpression)propertyAccess.Expression).Arguments[0]);
+                lpi.SubLoadingPropertyInfo.Add(new LoadingPropertyInfo(property, lazyLoadingType) { Parent = lpi });
                 return lpi;
             }
             else
                 throw new NotSupportedException("LazyLoad and EagerLoad support only property access and First method call : " + expression.ToString());
         }
+    }
+
+    internal enum LazyLoadingType
+    {
+        None,
+        Simple,
+        Batch
     }
 }

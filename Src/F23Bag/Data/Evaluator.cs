@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 
 namespace F23Bag.Data
@@ -55,6 +56,57 @@ namespace F23Bag.Data
                 if (exp == null) return null;
                 if (_candidates.Contains(exp)) return Evaluate(exp);
                 return base.Visit(exp);
+            }
+
+            protected override Expression VisitMemberInit(MemberInitExpression node)
+            {
+                var n = (NewExpression)VisitNew(node.NewExpression);
+                var bindings = VisitBindingList(node.Bindings);
+                if (n != node.NewExpression || bindings != node.Bindings)
+                {
+                    return Expression.MemberInit(n, bindings);
+                }
+                return node;
+            }
+
+            protected virtual IEnumerable<MemberBinding> VisitBindingList(ReadOnlyCollection<MemberBinding> original)
+            {
+                List<MemberBinding> list = null;
+                for (int i = 0, n = original.Count; i < n; i++)
+                {
+                    MemberBinding b = VisitBinding(original[i]);
+                    if (list != null)
+                    {
+                        list.Add(b);
+                    }
+                    else if (b != original[i])
+                    {
+                        list = new List<MemberBinding>(n);
+                        for (int j = 0; j < i; j++)
+                        {
+                            list.Add(original[j]);
+                        }
+                        list.Add(b);
+                    }
+                }
+                if (list != null)
+                    return list;
+                return original;
+            }
+
+            protected virtual MemberBinding VisitBinding(MemberBinding binding)
+            {
+                switch (binding.BindingType)
+                {
+                    case MemberBindingType.Assignment:
+                        return this.VisitMemberAssignment((MemberAssignment)binding);
+                    case MemberBindingType.MemberBinding:
+                        return this.VisitMemberMemberBinding((MemberMemberBinding)binding);
+                    case MemberBindingType.ListBinding:
+                        return this.VisitMemberListBinding((MemberListBinding)binding);
+                    default:
+                        throw new Exception(string.Format("Unhandled binding type '{0}'", binding.BindingType));
+                }
             }
 
             private Expression Evaluate(Expression e)

@@ -305,6 +305,11 @@ namespace F23Bag.ISeries
             _sqlElements.Push(_sqlElements.Pop().Append(" AS ").Append(nameAs.Name));
         }
 
+        public void Visit(ConditionalExpression conditionalExpression)
+        {
+            _sqlElements.Push(_sqlElements.Pop().Insert(0, "CASE WHEN ").Append(" THEN ").Append(_sqlElements.Pop()).Append(" ELSE ").Append(_sqlElements.Pop()).Append(" END"));
+        }
+
         private void AddPagination(Request request, StringBuilder sb)
         {
             sb.Append(", DENSE_RANK() OVER( ORDER BY ");

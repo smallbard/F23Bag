@@ -17,9 +17,9 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
-            return new LayoutBuilder<ObjectForDataGridLayout>(dataType, layoutProviders)
+            return new LayoutBuilder<ObjectForDataGridLayout>(dataType, layoutProviders, options)
                 .DataGrid(dg => dg
                     .Column(o => o.P1)
                     .Column(o => o.P3)

@@ -17,9 +17,9 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
-            return new LayoutBuilder<ObjectForTreeLayout>(dataType, layoutProviders)
+            return new LayoutBuilder<ObjectForTreeLayout>(dataType, layoutProviders, options)
                 .Tree(tb => tb.Children(o => o.Children))
                 .GetLayouts();
         }

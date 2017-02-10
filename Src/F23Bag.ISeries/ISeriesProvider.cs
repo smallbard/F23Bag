@@ -4,18 +4,13 @@ using System.Data;
 
 namespace F23Bag.ISeries
 {
-    public class ISeriesProvider : IDisposable, ISQLProvider
+    public class ISeriesProvider : ISQLProvider
     {
         private readonly string _connectionString;
 
         public ISeriesProvider(string connectionString)
         {
             _connectionString = connectionString;
-        }
-
-        public void Dispose()
-        {
-            throw new NotImplementedException();
         }
 
         public IDbConnection GetConnection()

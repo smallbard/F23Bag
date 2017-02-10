@@ -1,5 +1,4 @@
 ﻿using F23Bag.Data.DML;
-using F23Bag.Domain;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,19 +25,7 @@ namespace F23Bag.Data
         public void Save(object o)
         {
             if (o == null) throw new ArgumentNullException(nameof(o));
-            _operations.Add(() =>
-            {
-                Save(o, null, null);
-
-                foreach (var property in o.GetType().GetProperties())
-                    if (property.PropertyType.IsClass && property.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
-                    {
-                        var value = property.GetValue(o);
-                        if (value == null) continue;
-                        var idProperty = o.GetType().GetProperty("Id");
-                        foreach (var obj in (System.Collections.IEnumerable)value) Save(obj, property, idProperty.GetValue(o));
-                    }
-            });
+            _operations.Add(() => ((DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(o.GetType()))).Save(o, null, null, _alreadySaved, _sqlProvider, _sqlMapping));
         }
 
         public void Delete(object o)
@@ -132,81 +119,121 @@ namespace F23Bag.Data
             _alreadySaved.Clear();
         }
 
-        private void Save(object o, PropertyInfo parentProperty, object parentId)
+        private abstract class DoSave
         {
-            // no infinite loop
-            if (_alreadySaved.Contains(o)) return;
-            _alreadySaved.Add(o);
+            public abstract object GetId(object o);
 
-            var idProperty = o.GetType().GetProperty("Id");
-            var id = idProperty.GetValue(o);
+            public abstract void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping);
+        }
 
-            var doInsert = (idProperty.PropertyType.IsValueType && Activator.CreateInstance(idProperty.PropertyType).Equals(id)) || (!idProperty.PropertyType.IsValueType && id == null);
+        private class DoSave<T> : DoSave
+        {
+            private static readonly PropertyInfo _idProperty;
+            private static readonly Func<object, object> _getId;
+            private static readonly Action<object, object> _setId;
+            private static readonly IEnumerable<Tuple<PropertyInfo, Func<object, object>>> _properties;
 
-            var fromAlias = new AliasDefinition(_sqlMapping.GetSqlEquivalent(o.GetType()));
-            var request = new Request()
+            static DoSave()
             {
-                FromAlias = fromAlias,
-                RequestType = doInsert ? RequestType.InsertValues : RequestType.Update,
-                IdColumnName = _sqlMapping.GetColumnName(idProperty)
-            };
+                _idProperty = typeof(T).GetProperty("Id");
+                var pac = new PropertyAccessorCompiler(_idProperty);
+                _getId = pac.GetPropertyValue;
+                _setId = pac.SetPropertyValue;
+                _properties = typeof(T).GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.Name != "Id").Select(p => Tuple.Create(p, new PropertyAccessorCompiler(p).GetPropertyValue)).ToArray();
+            }
 
-            foreach (var property in o.GetType().GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null))
+            public override object GetId(object o)
             {
-                if (property.Name == "Id") continue;
-                var value = property.GetValue(o);
+                return _getId(o);
+            }
 
-                if (property.PropertyType.IsClass && property.PropertyType != typeof(string))
+            public override void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping)
+            {
+                // no infinite loop
+                if (alreadySaved.Contains(o)) return;
+                alreadySaved.Add(o);
+
+                var id = _getId(o);
+
+                var doInsert = (_idProperty.PropertyType.IsValueType && Activator.CreateInstance(_idProperty.PropertyType).Equals(id)) || (!_idProperty.PropertyType.IsValueType && id == null);
+
+                var fromAlias = new AliasDefinition(sqlMapping.GetSqlEquivalent(o.GetType()));
+                var request = new Request()
                 {
-                    if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType)) continue;
+                    FromAlias = fromAlias,
+                    RequestType = doInsert ? RequestType.InsertValues : RequestType.Update,
+                    IdColumnName = sqlMapping.GetColumnName(_idProperty)
+                };
 
-                    if (value != null)
+                foreach (var property in _properties)
+                {
+                    var value = property.Item2(o);
+
+                    if (property.Item1.PropertyType.IsClass && property.Item1.PropertyType != typeof(string))
                     {
-                        Save(value, null, null);
-                        value = value.GetType().GetProperty("Id").GetValue(value);
+                        if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Item1.PropertyType)) continue;
+
+                        if (value != null)
+                        {
+                            var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType));
+                            ds.Save(value, null, null, alreadySaved, sqlProvider, sqlMapping);
+                            value = ds.GetId(value);
+                        }
+                    }
+
+                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value), new ColumnAccess(fromAlias, new Identifier(sqlMapping.GetColumnName(property.Item1)))));
+                }
+
+                if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, sqlMapping.GetSqlEquivalent(request, fromAlias, _idProperty, false), new Constant(id));
+
+                if (parentProperty != null && parentId != null)
+                {
+                    var columnName = sqlMapping.GetColumnName(parentProperty);
+                    foreach (var uoi in request.UpdateOrInsert)
+                        if (uoi.Destination.Column.IdentifierName == columnName)
+                        {
+                            request.UpdateOrInsert.Remove(uoi);
+                            break;
+                        }
+
+                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId), new ColumnAccess(fromAlias, new Identifier(columnName))));
+                }
+
+                var parameters = new List<Tuple<string, object>>();
+                var sql = sqlProvider.GetSQLTranslator().Translate(request, parameters);
+                using (var connection = sqlProvider.GetConnection())
+                {
+                    if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = sql;
+                        foreach (var parameter in parameters)
+                        {
+                            var dbParameter = cmd.CreateParameter();
+                            dbParameter.ParameterName = parameter.Item1;
+                            dbParameter.Value = parameter.Item2;
+                            cmd.Parameters.Add(dbParameter);
+                        }
+
+                        if (doInsert)
+                            _setId(o, Convert.ChangeType(id = cmd.ExecuteScalar(), _idProperty.PropertyType));
+                        else
+                            cmd.ExecuteNonQuery();
                     }
                 }
 
-                request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value), new ColumnAccess(fromAlias, new Identifier(_sqlMapping.GetColumnName(property)))));
-            }
-
-            if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
-
-            if (parentProperty != null && parentId != null)
-            {
-                var columnName = _sqlMapping.GetColumnName(parentProperty);
-                foreach (var uoi in request.UpdateOrInsert)
-                    if (uoi.Destination.Column.IdentifierName == columnName)
+                foreach (var property in _properties)
+                    if (property.Item1.PropertyType.IsClass && property.Item1.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Item1.PropertyType))
                     {
-                        request.UpdateOrInsert.Remove(uoi);
-                        break;
+                        var value = property.Item2(o);
+                        if (value == null) continue;
+                        var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType.GetGenericArguments()[0]));
+                        foreach (var obj in (System.Collections.IEnumerable)value)
+                        {
+                            doSave.Save(obj, property.Item1, id, alreadySaved, sqlProvider, sqlMapping);
+                        }
                     }
-
-                request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId), new ColumnAccess(fromAlias, new Identifier(columnName))));
-            }
-
-            var parameters = new List<Tuple<string, object>>();
-            var sql = _sqlProvider.GetSQLTranslator().Translate(request, parameters);
-            using (var connection = _sqlProvider.GetConnection())
-            {
-                if (connection.State != System.Data.ConnectionState.Open) connection.Open();
-
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = sql;
-                    foreach (var parameter in parameters)
-                    {
-                        var dbParameter = cmd.CreateParameter();
-                        dbParameter.ParameterName = parameter.Item1;
-                        dbParameter.Value = parameter.Item2;
-                        cmd.Parameters.Add(dbParameter);
-                    }
-
-                    if (doInsert)
-                        idProperty.SetValue(o, Convert.ChangeType(cmd.ExecuteScalar(), idProperty.PropertyType));
-                    else
-                        cmd.ExecuteNonQuery();
-                }
             }
         }
     }

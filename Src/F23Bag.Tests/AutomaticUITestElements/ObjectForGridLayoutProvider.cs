@@ -17,9 +17,9 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
-            return new LayoutBuilder<ObjectForGridLayout>(dataType, layoutProviders)
+            return new LayoutBuilder<ObjectForGridLayout>(dataType, layoutProviders, options)
                 .Grid(g => g
                     .Cell(0,0, l => l.Vertical(v => v
                         .Property(o => o.P1)

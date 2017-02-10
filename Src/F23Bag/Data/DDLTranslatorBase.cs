@@ -55,45 +55,27 @@ namespace F23Bag.Data
         protected virtual string GetSqlTypeName(Type type)
         {
             if (type == typeof(int) || type == typeof(int?))
-            {
                 return "INTEGER";
-            }
+            else if (type == typeof(long) || type == typeof(long?))
+                return "BIGINT";
             else if (type == typeof(short) || type == typeof(short?))
-            {
                 return "SMALLINT";
-            }
             else if (type == typeof(bool) || type == typeof(bool?))
-            {
                 return "SMALLINT";
-            }
             else if (type == typeof(string))
-            {
                 return "NVARCHAR(100)";
-            }
             else if (type == typeof(char))
-            {
                 return "CHAR";
-            }
             else if (type == typeof(DateTime) || type == typeof(DateTime?))
-            {
                 return "TIMESTAMP";
-            }
             else if (type.BaseType == typeof(Enum))
-            {
                 return "INT";
-            }
             else if (type == typeof(decimal) || type == typeof(decimal?))
-            {
                 return " NUMERIC(18,7)";
-            }
             else if (type == typeof(byte[]))
-            {
                 return "BLOB";
-            }
             else if (type == typeof(double) || type == typeof(double?))
-            {
                 return "FLOAT";
-            }
             else
                 throw new NotImplementedException();
         }

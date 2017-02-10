@@ -71,6 +71,14 @@ namespace F23Bag.Data.DML
             }
         }
 
+        public Request ParentRequest
+        {
+            get
+            {
+                return _parentRequest;
+            }
+        }
+
         public ICollection<Join> Joins { get; private set; }
 
         public DMLNode Where

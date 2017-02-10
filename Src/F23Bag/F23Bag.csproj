@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="AutomaticUI\DefaultI18n.cs" />
     <Compile Include="AutomaticUI\I18n.cs" />
+    <Compile Include="AutomaticUI\I18nMessage.cs" />
     <Compile Include="AutomaticUI\IAuthorization.cs" />
     <Compile Include="AutomaticUI\Layouts\ILayoutProvider.cs" />
     <Compile Include="AutomaticUI\Layouts\LayoutBuilder.cs" />
@@ -64,21 +65,27 @@
     <Compile Include="Data\DDL\DDLStatement.cs" />
     <Compile Include="Data\DDL\DDLStatementType.cs" />
     <Compile Include="Data\DDLTranslatorBase.cs" />
+    <Compile Include="Data\DML\ConditionalExpression.cs" />
     <Compile Include="Data\IDDLTranslator.cs" />
     <Compile Include="Data\IExpresstionToSqlAst.cs" />
     <Compile Include="Data\IPropertyMapper.cs" />
     <Compile Include="Data\ISQLProvider.cs" />
     <Compile Include="Data\DML\NameAs.cs" />
+    <Compile Include="Data\PropertyAccessorCompiler.cs" />
+    <Compile Include="MetaData\Column.cs" />
+    <Compile Include="MetaData\ForeignKey.cs" />
+    <Compile Include="MetaData\IMetaDataProvider.cs" />
+    <Compile Include="MetaData\Table.cs" />
     <Compile Include="Data\UnitOfWork.cs" />
     <Compile Include="Domain\IHasInteractions.cs" />
     <Compile Include="Domain\IHasValidation.cs" />
     <Compile Include="Domain\InteractionEventArgs.cs" />
-    <Compile Include="Domain\IQueryFactory.cs" />
+    <Compile Include="Data\IQueryFactory.cs" />
     <Compile Include="Domain\ISelector.cs" />
     <Compile Include="Domain\MandatoryAttribute.cs" />
     <Compile Include="Domain\MaxLengthAttribute.cs" />
     <Compile Include="Domain\RegexAttribute.cs" />
-    <Compile Include="Domain\TransientAttribute.cs" />
+    <Compile Include="Data\TransientAttribute.cs" />
     <Compile Include="Domain\ValidationEventArgs.cs" />
     <Compile Include="Domain\Validator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

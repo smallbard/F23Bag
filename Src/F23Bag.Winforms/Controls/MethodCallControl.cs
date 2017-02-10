@@ -21,7 +21,7 @@ namespace F23Bag.Winforms.Controls
             InitializeComponent();
 
             btnMethodCall.FlatStyle = FlatStyle.Flat;
-            btnMethodCall.BackColor = System.Drawing.Color.White;
+            btnMethodCall.BackColor = cstBackColor;
 
             DisplayedMember = method;
             _layout = layout;

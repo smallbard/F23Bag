@@ -123,20 +123,12 @@ namespace F23Bag.Tests
 
             public void Validate()
             {
-                foreach (var vr in new Validator<ObjectToValidate>(new DefaultI18n()).Validate(this)) OnValidationInfoCreated(vr);
+                foreach (var vr in new Validator<ObjectToValidate>().Validate(this)) OnValidationInfoCreated(vr);
             }
 
             protected virtual void OnValidationInfoCreated(ValidationEventArgs e)
             {
                 ValidationInfoCreated?.Invoke(this, e);
-            }
-        }
-
-        private class DefaultI18n : I18n
-        {
-            public string GetTranslation(string message)
-            {
-                return message;
             }
         }
     }

@@ -139,7 +139,8 @@ namespace F23Bag.Data
 
                     return false;
                 }
-                else if(_isAnonymousType)
+
+                if (_isAnonymousType)
                 {
                     if (_reader.Read())
                     {
@@ -166,7 +167,7 @@ namespace F23Bag.Data
                         _mapper.Map(_current, _reader, _request, firstRead);
                         firstRead = false;
                     }
-                    while ((_notEndOfReader = _reader.Read()) && (_lastId = _mapper.GetMainId(_reader, _request)).Equals(id));
+                    while ((_notEndOfReader = _reader.Read()) && (_lastId = _mapper.GetMainId(_reader, _request)).Equals(id) && id != null);
                 else
                     return false;
 

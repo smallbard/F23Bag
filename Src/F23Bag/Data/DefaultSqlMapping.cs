@@ -9,19 +9,16 @@ namespace F23Bag.Data
 {
     public class DefaultSqlMapping : ISQLMapping
     {
-        private readonly Dictionary<PropertyInfo, PropertyInfo> _equivalentProperties;
         private readonly IEnumerable<IPropertyMapper> _propertyMappers;
 
         public DefaultSqlMapping(IEnumerable<IPropertyMapper> propertyMappers)
         {
-            _equivalentProperties = new Dictionary<PropertyInfo, PropertyInfo>();
             _propertyMappers = propertyMappers ?? new IPropertyMapper[] { };
         }
 
         public virtual DMLNode GetSqlEquivalent(Request request, AliasDefinition ownerAlias, PropertyInfo property, bool inOr)
         {
             if (property == null) throw new ArgumentNullException(nameof(property));
-            property = GetRealProperty(property);
 
             if (property.PropertyType != typeof(string) && property.PropertyType.IsClass)
             {
@@ -29,10 +26,26 @@ namespace F23Bag.Data
                 if (alias == null)
                 {
                     var elementType = typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType) ? property.PropertyType.GetGenericArguments()[0] : property.PropertyType;
+
+                    //if subrequest, search the request with the ownerAlias
+                    if (request.ParentRequest != null)
+                    {
+                        var r = request;
+                        while (r != null)
+                        {
+                            if (r.FromAlias == ownerAlias || r.Joins.Any(j => j.Alias == ownerAlias)) break;
+                            r = r.ParentRequest;
+                        }
+                        inOr = r != request && r != null;
+                        if (r != null) request = r;
+                    }
+                    
                     request.Joins.Add(new Join(
                         inOr ? JoinTypeEnum.Left : JoinTypeEnum.Inner,
                         alias = new DML.AliasDefinition(GetSqlEquivalent(elementType)),
                         GetJoinCondition(request, property, ownerAlias, alias, inOr)));
+
+                    alias.Equivalents.Add(property);
                 }
                 else
                     request.GetJoinForAlias(alias).Use++;
@@ -62,12 +75,7 @@ namespace F23Bag.Data
         {
             if (type == null) throw new ArgumentNullException(nameof(type));
 
-            return new Identifier(string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString())));
-        }
-
-        public virtual void AddEquivalentProperty(PropertyInfo original, PropertyInfo equivalentProperty)
-        {
-            _equivalentProperties[equivalentProperty] = original;
+            return new Identifier(GetTableName(type));
         }
 
         public virtual IEnumerable<IPropertyMapper> GetCustomPropertiesMappers()
@@ -75,10 +83,9 @@ namespace F23Bag.Data
             return _propertyMappers;
         }
 
-        private PropertyInfo GetRealProperty(PropertyInfo property)
+        protected virtual string GetTableName(Type type)
         {
-            if (!_equivalentProperties.ContainsKey(property)) return property;
-            return GetRealProperty(_equivalentProperties[property]);
+            return string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
         }
 
         private DMLNode GetJoinCondition(Request request, PropertyInfo property, AliasDefinition aliasOwner, AliasDefinition aliasElement, bool inOr)

@@ -13,8 +13,6 @@ namespace F23Bag.Data
 
         string GetColumnName(PropertyInfo property);
 
-        void AddEquivalentProperty(PropertyInfo original, PropertyInfo equivalentProperty);
-
         IEnumerable<IPropertyMapper> GetCustomPropertiesMappers();
     }
 }

@@ -21,6 +21,13 @@ namespace F23Bag.Data
             return new Query<TSource>((QueryProvider)source.Provider, Expression.Call(null, new Func<IQueryable<TSource>, Expression<Func<TSource, TValue>>, IQueryable<TSource>>(LazyLoad).Method, source.Expression, Expression.Quote(propertyExpression)));
         }
 
+        public static IQueryable<TSource> BatchLazyLoad<TSource, TValue>(this IQueryable<TSource> source, Expression<Func<TSource, TValue>> propertyExpression)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (propertyExpression == null) throw new ArgumentNullException(nameof(propertyExpression));
+            return new Query<TSource>((QueryProvider)source.Provider, Expression.Call(null, new Func<IQueryable<TSource>, Expression<Func<TSource, TValue>>, IQueryable<TSource>>(BatchLazyLoad).Method, source.Expression, Expression.Quote(propertyExpression)));
+        }
+
         public static IQueryable<TSource> DontLoad<TSource, TValue>(this IQueryable<TSource> source, Expression<Func<TSource, TValue>> propertyExpression)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));

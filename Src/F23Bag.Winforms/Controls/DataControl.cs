@@ -3,7 +3,6 @@ using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
 using F23Bag.Domain;
-using F23Bag.AutomaticUI;
 using F23Bag.AutomaticUI.Layouts;
 using System.ComponentModel;
 
@@ -42,14 +41,18 @@ namespace F23Bag.Winforms.Controls
             if (_layout.SelectorType != null)
             {
                 var realData = data;
-                data = Context.Resolve(_layout.SelectorType);
+                var selector = data = Context.Resolve(_layout.SelectorType);
 
-                ((PropertyInfo)DisplayedMember).SetValue(data, _layout.OwnerProperty.GetValue(realData));
-
-                ((INotifyPropertyChanged)data).PropertyChanged += (s, e) =>
+                if (((PropertyInfo)DisplayedMember).Equals(Context.SelectorOwnerProperties[_layout]))
                 {
-                    if (e.PropertyName == "SelectedValue") _layout.OwnerProperty.SetValue(realData, ((PropertyInfo)DisplayedMember).GetValue(data));
-                };
+                    var selectedValueProperty = _layout.SelectorType.GetProperty(nameof(ISelector<object>.SelectedValue));
+                    selectedValueProperty.SetValue(selector, Context.SelectorOwnerProperties[_layout].GetValue(realData));
+
+                    ((INotifyPropertyChanged)selector).PropertyChanged += (s, e) =>
+                    {
+                        if (e.PropertyName == nameof(ISelector<object>.SelectedValue)) Context.SelectorOwnerProperties[_layout].SetValue(realData, selectedValueProperty.GetValue(selector));
+                    };
+                }
             }
 
             CustomDisplay(data);
@@ -85,8 +88,16 @@ namespace F23Bag.Winforms.Controls
         {
             if (DisplayedMember == null || !DisplayedMember.Equals(e.Member)) return;
 
-            Visible = e.Visible;
-            Enabled = e.Enabled;
+            var act = new Action(() =>
+            {
+                Visible = e.Visible;
+                Enabled = e.Enabled;
+            });
+
+            if (InvokeRequired)
+                Invoke(act);
+            else
+                act();
         }
 
         private void DataControl_ValidationInfoCreated(object sender, ValidationEventArgs e)
@@ -119,7 +130,7 @@ namespace F23Bag.Winforms.Controls
                     g.DrawImage(icon.ToBitmap(), new Rectangle(Point.Empty, iconSize));
                 }
 
-                new ToolTip().SetToolTip(ValidationIcon, e.Message);
+                new ToolTip().SetToolTip(ValidationIcon, Context.I18n.GetTranslation(e));
                 ValidationIcon.Image = bitmap;
                 ValidationIcon.Visible = true;
             });

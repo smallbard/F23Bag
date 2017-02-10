@@ -30,7 +30,7 @@ namespace F23Bag.Winforms.Controls
             gridView.AutoGenerateColumns = false;
             gridView.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
-            gridView.BackgroundColor = Color.White;
+            gridView.BackgroundColor = cstBackColor;
             gridView.ColumnHeadersDefaultCellStyle.BackColor = cstForeColor;
             gridView.ColumnHeadersDefaultCellStyle.ForeColor = cstBackColor;
             gridView.EnableHeadersVisualStyles = false;

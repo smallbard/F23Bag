@@ -15,21 +15,28 @@ namespace F23Bag.AutomaticUI.Layouts
         private readonly List<Func<Layout>> _getLayouts = new List<Func<Layout>>();
         private readonly IEnumerable<ILayoutProvider> _layoutProviders;
         private readonly Type _dataType;
+        private readonly Dictionary<string, object> _options;
 
-        public LayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        public LayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
             _dataType = dataType;
             _layoutProviders = layoutProviders;
+            _options = options;
         }
 
         public IEnumerable<Layout> GetLayouts()
         {
-            return _getLayouts.Select(gl => gl());
+            return _getLayouts.Select(gl =>
+            {
+                var layout = gl();
+                layout.Options = _options;
+                return layout;
+            });
         }
 
         public LayoutBuilder<TData> Grid(Action<GridLayoutBuilder> defineGrid)
         {
-            var glb = new GridLayoutBuilder(_dataType, _layoutProviders);
+            var glb = new GridLayoutBuilder(_dataType, _layoutProviders, _options);
             _getLayouts.Add(glb.GetLayout);
             defineGrid(glb);
             return this;
@@ -37,7 +44,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public LayoutBuilder<TData> Horizontal(Action<LayoutBuilder<TData>> defineFlow)
         {
-            var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders);
+            var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
             _getLayouts.Add(() => new FlowLayout(_layoutProviders, FlowDirectionEnum.Horizontal, layoutBuilder.GetLayouts()));
             defineFlow(layoutBuilder);
             return this;
@@ -45,7 +52,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public LayoutBuilder<TData> Vertical(Action<LayoutBuilder<TData>> defineFlow)
         {
-            var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders);
+            var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
             _getLayouts.Add(() => new FlowLayout(_layoutProviders, FlowDirectionEnum.Vertical, layoutBuilder.GetLayouts()));
             defineFlow(layoutBuilder);
             return this;
@@ -53,7 +60,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public LayoutBuilder<TData> DataGrid(Action<DataGridLayoutBuilder> defineDataGrid)
         {
-            var dglb = new DataGridLayoutBuilder(_dataType, _layoutProviders);
+            var dglb = new DataGridLayoutBuilder(_dataType, _layoutProviders, _options);
             _getLayouts.Add(dglb.GetLayout);
             defineDataGrid(dglb);
             return this;
@@ -61,7 +68,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public LayoutBuilder<TData> Tabs(Action<TabsLayoutBuilder> defineTabs)
         {
-            var tlb = new TabsLayoutBuilder(_dataType, _layoutProviders);
+            var tlb = new TabsLayoutBuilder(_dataType, _layoutProviders, _options);
             _getLayouts.Add(tlb.GetLayout);
             defineTabs(tlb);
             return this;
@@ -187,9 +194,15 @@ namespace F23Bag.AutomaticUI.Layouts
             return Method(method, null, false);
         }
 
+        public LayoutBuilder<TData> If(bool condition, Action defineLayout)
+        {
+            if (condition) defineLayout();
+            return this;
+        }
+
         internal Layout GetLastLayout()
         {
-            return _getLayouts.LastOrDefault()?.Invoke();
+            return GetLayouts().Last();
         }
 
         public class GridLayoutBuilder
@@ -197,17 +210,19 @@ namespace F23Bag.AutomaticUI.Layouts
             private readonly List<Func<LayoutCellPosition>> _getCells;
             private readonly IEnumerable<ILayoutProvider> _layoutProviders;
             private readonly Type _dataType;
+            private readonly Dictionary<string, object> _options;
 
-            internal GridLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+            internal GridLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string,object> options)
             {
                 _dataType = dataType;
                 _getCells = new List<Func<Layouts.LayoutCellPosition>>();
                 _layoutProviders = layoutProviders;
+                _options = options;
             }
 
             public GridLayoutBuilder Cell(int column, int row, int colSpan, int rowSpan, Action<LayoutBuilder<TData>> defineCell)
             {
-                var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders);
+                var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
                 _getCells.Add(() => new LayoutCellPosition(layoutBuilder.GetLastLayout(), column, row, colSpan, rowSpan));
                 defineCell(layoutBuilder);
                 return this;
@@ -216,6 +231,12 @@ namespace F23Bag.AutomaticUI.Layouts
             public GridLayoutBuilder Cell(int column, int row, Action<LayoutBuilder<TData>> defineCell)
             {
                 return Cell(column, row, 1, 1, defineCell);
+            }
+
+            public GridLayoutBuilder If(bool condition, Action defineLayout)
+            {
+                if (condition) defineLayout();
+                return this;
             }
 
             internal GridLayout GetLayout()
@@ -233,11 +254,11 @@ namespace F23Bag.AutomaticUI.Layouts
             private readonly Type _dataType;
             private MethodInfo _openAction;
 
-            internal DataGridLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+            internal DataGridLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
             {
                 _dataType = dataType;
                 _layoutProviders = layoutProviders;
-                _layoutBuilder = new LayoutBuilder<TData>(dataType, layoutProviders);
+                _layoutBuilder = new LayoutBuilder<TData>(dataType, layoutProviders, options);
                 _columns = new List<OneMemberLayout>();
                 _actions = new List<OneMemberLayout>();
             }
@@ -365,6 +386,12 @@ namespace F23Bag.AutomaticUI.Layouts
                 return this;
             }
 
+            public DataGridLayoutBuilder If(bool condition, Action defineLayout)
+            {
+                if (condition) defineLayout();
+                return this;
+            }
+
             internal DataGridLayout GetLayout()
             {
                 return new DataGridLayout(_layoutProviders, _columns, _actions, _openAction);
@@ -376,19 +403,27 @@ namespace F23Bag.AutomaticUI.Layouts
             private readonly Type _dataType;
             private readonly List<Tuple<string, Func<Layout>>> _tabs;
             private readonly IEnumerable<ILayoutProvider> _layoutProviders;
+            private readonly Dictionary<string, object> _options;
 
-            internal TabsLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+            internal TabsLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
             {
                 _dataType = dataType;
                 _layoutProviders = layoutProviders;
                 _tabs = new List<Tuple<string, Func<Layouts.Layout>>>();
+                _options = options;
             }
 
             public TabsLayoutBuilder Tab(string tabName, Action<LayoutBuilder<TData>> defineTab)
             {
-                var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders);
+                var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
                 _tabs.Add(Tuple.Create(tabName, new Func<Layout>(layoutBuilder.GetLastLayout)));
                 defineTab(layoutBuilder);
+                return this;
+            }
+
+            public TabsLayoutBuilder If(bool condition, Action defineLayout)
+            {
+                if (condition) defineLayout();
                 return this;
             }
 
@@ -420,6 +455,12 @@ namespace F23Bag.AutomaticUI.Layouts
                 _children = mbAccess.Member;
             }
 
+            public TreeLayoutbuilder If(bool condition, Action defineLayout)
+            {
+                if (condition) defineLayout();
+                return this;
+            }
+            
             internal TreeLayout GetLayout()
             {
                 return new TreeLayout(_layoutProviders, _children);

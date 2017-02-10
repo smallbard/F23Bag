@@ -39,7 +39,7 @@ namespace F23Bag.Winforms
                 form.AutoScroll = true;
                 form.SizeGripStyle = SizeGripStyle.Hide;
                 form.FormBorderStyle = FormBorderStyle.Sizable;
-                form.BackColor = System.Drawing.Color.White;
+                form.BackColor = Color.White;
                 form.Text = _context.I18n.GetTranslation(label);
 
                 form.Shown += (s, e) => form.Location = new Point((Screen.FromControl(form).WorkingArea.Width - form.Width) / 2, (Screen.FromControl(form).WorkingArea.Height - form.Height) / 2);
@@ -64,7 +64,11 @@ namespace F23Bag.Winforms
 
         private DataControl GetDataControl(Layout layout, object data, PropertyInfo ownerProperty)
         {
-            layout.OwnerProperty = ownerProperty;
+            if(layout.SelectorType != null)
+            {
+                _context.SelectorOwnerProperties[layout] = ownerProperty;
+                if (!layout.SelectorType.IsAssignableFrom(data.GetType())) data = _context.Resolve(layout.SelectorType);
+            }
 
             if (layout is FlowLayout)
             {
@@ -152,7 +156,7 @@ namespace F23Bag.Winforms
             {
                 var tabsLayout = (TabsLayout)layout;
                 var tabsControl = new TabsControl(layout, _context);
-                foreach (var tab in tabsLayout.Tabs) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data, ownerProperty));
+                foreach (var tab in tabsLayout.Tabs.Where(t => t.Item2 != null)) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data, ownerProperty));
                 return tabsControl;
             }
             else if (layout is TreeLayout)

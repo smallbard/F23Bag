@@ -37,7 +37,7 @@ namespace F23Bag.Winforms.Controls
             {
                 data = Property.GetValue(data);
                 lblTitle.Text = Context.I18n.GetTranslation(Label);
-                if (data == null) Property.SetValue(oldData, data = Activator.CreateInstance(Property.PropertyType));
+                if (data == null) Property.SetValue(oldData, data = Context.Resolve(Property.PropertyType));
             }
 
             if (Property == null)

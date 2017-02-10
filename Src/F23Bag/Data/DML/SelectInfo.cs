@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace F23Bag.Data.DML
 {
@@ -8,11 +11,15 @@ namespace F23Bag.Data.DML
         {
             SelectSql = selectSql;
             Property = property;
+
+            SetPropertyValue = new PropertyAccessorCompiler(property).SetPropertyValue;
         }
 
         public DMLNode SelectSql { get; private set; }
 
         public PropertyInfo Property { get; private set; }
+
+        public Action<object,object> SetPropertyValue { get; private set; }
 
         public override string ToString()
         {

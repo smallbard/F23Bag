@@ -308,6 +308,11 @@ namespace F23Bag.SQLite
             _sqlElements.Push(_sqlElements.Pop().Append(" AS ").Append(nameAs.Name));
         }
 
+        public void Visit(ConditionalExpression conditionalExpression)
+        {
+            _sqlElements.Push(_sqlElements.Pop().Insert(0, "CASE WHEN ").Append(" THEN ").Append(_sqlElements.Pop()).Append(" ELSE ").Append(_sqlElements.Pop()).Append(" END"));
+        }
+
         private void AddPagination(Request request, StringBuilder sb, int fromIndex)
         {
             var oldHasDistinct = request.HasDistinct;
@@ -322,7 +327,7 @@ namespace F23Bag.SQLite
 
             var translator = new SQLiteSQLTranslator("ds");
             foreach (var alias in _aliasNames.Keys) translator._aliasNames[alias] = _aliasNames[alias] + "bis";
-            var denseRankExpression = new StringBuilder(", (SELECT COUNT() + 1 FROM (").Append(translator.Translate(request, _parameters));
+            var denseRankExpression = new StringBuilder(", (SELECT COUNT() FROM (").Append(translator.Translate(request, _parameters));
 
             if (request.Where == null)
                 denseRankExpression.Append(" WHERE ");

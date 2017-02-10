@@ -17,9 +17,9 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
-            return new LayoutBuilder<ObjectForTabsLayout>(dataType, layoutProviders)
+            return new LayoutBuilder<ObjectForTabsLayout>(dataType, layoutProviders, options)
                 .Tabs(t => t
                     .Tab("FirstTab", l => l
                         .Vertical(v => v

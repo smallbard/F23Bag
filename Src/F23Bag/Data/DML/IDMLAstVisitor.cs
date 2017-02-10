@@ -15,5 +15,6 @@
         void Visit(UpdateOrInsertInfo updateInfo);
         void Visit(Request request);
         void Visit(UnaryExpression unaryExpression);
+        void Visit(ConditionalExpression conditionalExpression);
     }
 }

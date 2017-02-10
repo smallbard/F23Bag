@@ -14,13 +14,17 @@ namespace F23Bag.Data.Mapping
         private readonly ISQLMapping _sqlMapping;
         private readonly DbQueryProvider _queryProvider;
         private readonly Dictionary<LoadingPropertyInfo, int> _lazyProperties;
+        private readonly LazyProxyGenerator _lazyProxyGenerator;
+        private IEnumerable<IPropertyMapper> _mappers;
         private int _selectMainSimplePropertiesCount;
         
         public Mapper(DbQueryProvider queryProvider)
         {
             _sqlMapping = queryProvider.SqlMapping;
+            _mappers = _sqlMapping.GetCustomPropertiesMappers();
             _queryProvider = queryProvider;
             _lazyProperties = new Dictionary<LoadingPropertyInfo, int>();
+            _lazyProxyGenerator = new LazyProxyGenerator(_queryProvider);
             LoadingPropertyInfos = new List<LoadingPropertyInfo>();
         }
 
@@ -91,7 +95,7 @@ namespace F23Bag.Data.Mapping
                     break;
                 }
 
-            if (idIndex < 0) throw new SQLException("Property Id not found.");
+            if (idIndex < 0) return null;
 
             return reader[idIndex];
         }
@@ -101,16 +105,15 @@ namespace F23Bag.Data.Mapping
 
             if (firstRead)
             {
-                var mappers = _sqlMapping.GetCustomPropertiesMappers();
                 for (var i = 0; i < _selectMainSimplePropertiesCount; i++)
                 {
-                    var mapper = mappers.FirstOrDefault(m => m.Accept(request.Select[i].Property));
+                    var mapper = _mappers?.FirstOrDefault(m => m.Accept(request.Select[i].Property));
                     if (mapper != null)
                         mapper.Map(o, request.Select[i].Property, reader, i);
                     else if (request.Select[i].Property.PropertyType.IsEnum)
-                        request.Select[i].Property.SetValue(o, Convert.ToInt32(reader[i]));
+                        request.Select[i].SetPropertyValue(o, Convert.ToInt32(reader[i]));
                     else
-                        request.Select[i].Property.SetValue(o, Convert.ChangeType(DBNull.Value.Equals(reader[i]) ? null : reader[i], request.Select[i].Property.PropertyType));
+                        request.Select[i].SetPropertyValue(o, Convert.ChangeType(DBNull.Value.Equals(reader[i]) ? null : reader[i], request.Select[i].Property.PropertyType));
                 }
             }
 
@@ -123,16 +126,16 @@ namespace F23Bag.Data.Mapping
             foreach (var lpi in loadingPropertyInfos)
             {
                 var isCollection = typeof(System.Collections.IEnumerable).IsAssignableFrom(lpi.Property.PropertyType);
-                if (lpi.IsLazyLoading)
+                if (lpi.LazyLoadingType != LazyLoadingType.None)
                 {
                     if (!firstRead) continue;
 
                     if (isCollection)
-                        lpi.Property.SetValue(o, new LazyProxyGenerator(_queryProvider).GetProxyForCollection(lpi, o.GetType().GetProperty("Id").GetValue(o)));
+                        lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxyForCollection(lpi, o.GetType().GetProperty("Id").GetValue(o)));
                     else
                     {
-                        var objectId = reader[_lazyProperties[lpi]];
-                        if (!DBNull.Value.Equals(objectId)) lpi.Property.SetValue(o, new LazyProxyGenerator(_queryProvider).GetProxy(lpi, objectId));
+                        var objectId = Convert.ChangeType(reader[_lazyProperties[lpi]], lpi.Property.PropertyType.GetProperty("Id").PropertyType);
+                        if (!DBNull.Value.Equals(objectId)) lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxy(lpi, objectId));
                     }
                 }
                 else
@@ -154,7 +157,7 @@ namespace F23Bag.Data.Mapping
                         if (isCollection || !DBNull.Value.Equals(reader[idSelectIndex]))
                         {
                             element = isCollection ? new CollectionActivator().CreateInstance(lpi.Property.PropertyType) : _queryProvider.Resolve(lpi.Property.PropertyType);
-                            lpi.Property.SetValue(o, element);
+                            lpi.SetPropertyValue(o, element);
                             if (isCollection)
                             {
                                 var collection = (System.Collections.IList)element;
@@ -175,7 +178,7 @@ namespace F23Bag.Data.Mapping
 
                         if (idIndex < 0) throw new SQLException("Property Id not found.");
 
-                        var collection = (System.Collections.IList)lpi.Property.GetValue(o);
+                        var collection = (System.Collections.IList)lpi.GetPropertyValue(o);
                         element = collection[0];
                         var idProperty = request.Select[idIndex].Property;
                         if (firstRead = !idProperty.GetValue(element).Equals(reader[idIndex]))
@@ -195,7 +198,7 @@ namespace F23Bag.Data.Mapping
                             if (mapper != null)
                                 mapper.Map(o, request.Select[selectIndex].Property, reader, selectIndex);
                             else
-                                request.Select[selectIndex].Property.SetValue(element, Convert.ChangeType(DBNull.Value.Equals(reader[selectIndex]) ? null : reader[selectIndex], request.Select[selectIndex].Property.PropertyType));
+                                request.Select[selectIndex].SetPropertyValue(element, Convert.ChangeType(DBNull.Value.Equals(reader[selectIndex]) ? null : reader[selectIndex], request.Select[selectIndex].Property.PropertyType));
                             selectIndex++;
                         }
                     }
@@ -228,7 +231,7 @@ namespace F23Bag.Data.Mapping
         private void AddLoading(Request request, AliasDefinition alias, List<LoadingPropertyInfo> loadingPropertyInfos)
         {
             foreach (var lpi in loadingPropertyInfos.OrderBy(l => l.Depth))
-                if (lpi.IsLazyLoading)
+                if (lpi.LazyLoadingType != LazyLoadingType.None)
                 {
                     if (typeof(System.Collections.IEnumerable).IsAssignableFrom(lpi.Property.PropertyType)) continue;
                     _lazyProperties[lpi] = request.Select.Count;

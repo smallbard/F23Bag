@@ -164,6 +164,32 @@ namespace F23Bag.Tests
         }
 
         [TestMethod]
+        public void BatchLazyLoading()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            var objs = GetQuery<Objet1Bis>()
+                .BatchLazyLoad(o => o.Objet3List)
+                .BatchLazyLoad(o => o.Objet2)
+                .Where(o => o.Id == 1 || o.Id == 2).ToArray();
+
+            Assert.IsNotNull(objs);
+            Assert.AreEqual(2, objs.Length);
+
+            var obj1 = objs.First(o => o.Id == 1);
+            Assert.IsNotNull(obj1.Objet2);
+            Assert.AreEqual(1.2, obj1.Objet2.Value2);
+            Assert.IsNotNull(obj1.Objet3List);
+            Assert.AreEqual(2, obj1.Objet3List.Count);
+
+            var obj2 = objs.First(o => o.Id == 2);
+            Assert.IsNotNull(obj2.Objet2);
+            Assert.AreEqual(2.2, obj2.Objet2.Value2);
+            Assert.IsNotNull(obj2.Objet3List);
+            Assert.AreEqual(1, obj2.Objet3List.Count);
+        }
+
+        [TestMethod]
         public void DontLoad()
         {
             if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
@@ -215,6 +241,71 @@ namespace F23Bag.Tests
             Assert.IsFalse(countGroup.Any(c => c.Count != 1));
             Assert.IsTrue(countGroup.Any(c => c.Value == 2.2));
             Assert.IsTrue(countGroup.Any(c => c.Value == 3.2));
+        }
+
+        [TestMethod]
+        public void ProjectAnonymousTypes()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            var result1 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new { Name = o.Name }).First();
+            Assert.IsNotNull(result1);
+            Assert.AreEqual("obj1", result1.Name);
+
+            var result2 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new { Value2 = o.Objet2.Value2 }).First();
+            Assert.IsNotNull(result2);
+            Assert.AreEqual(1.2, result2.Value2);
+
+            var result3 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new { Name = o.Name, Obj2Count = GetQuery<Objet2>().Count() }).First();
+            Assert.IsNotNull(result3);
+            Assert.AreEqual("obj1", result3.Name);
+            Assert.AreEqual(3, result3.Obj2Count);
+
+            var result4 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new { Name = o.Name, Obj2Count = GetQuery<Objet2>().Where(o2 => o.Objet2.Id == o2.Id).Count() }).First();
+            Assert.IsNotNull(result4);
+            Assert.AreEqual("obj1", result4.Name);
+            Assert.AreEqual(1, result4.Obj2Count);
+        }
+
+        [TestMethod]
+        public void ProjectOnNonEntityTypes()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            var result1 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new ObjName { Name = o.Name }).First();
+            Assert.IsNotNull(result1);
+            Assert.AreEqual("obj1", result1.Name);
+
+            var result2 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new ObjValue2 { Value2 = o.Objet2.Value2 }).First();
+            Assert.IsNotNull(result2);
+            Assert.AreEqual(1.2, result2.Value2);
+
+            var result3 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Name = o.Name, Obj2Count = GetQuery<Objet2>().Count() }).First();
+            Assert.IsNotNull(result3);
+            Assert.AreEqual("obj1", result3.Name);
+            Assert.AreEqual(3, result3.Obj2Count);
+
+            var result4 = GetQuery<Objet1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Name = o.Name, Obj2Count = GetQuery<Objet2>().Where(o2 => o.Objet2.Id == o2.Id).Count() }).First();
+            Assert.IsNotNull(result4);
+            Assert.AreEqual("obj1", result4.Name);
+            Assert.AreEqual(1, result4.Obj2Count);
+        }
+
+        public class ObjName
+        {
+            public string Name { get; set; }
+        }
+
+        public class ObjValue2
+        {
+            public double Value2 { get; set; }
+        }
+
+        public class ObjNameCount
+        {
+            public string Name { get; set; }
+
+            public int Obj2Count { get; set; }
         }
 
         [TestMethod, Ignore]

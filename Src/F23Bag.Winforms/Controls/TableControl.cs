@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Reflection;
 using F23Bag.AutomaticUI;
 using F23Bag.AutomaticUI.Layouts;
+using F23Bag.Domain;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -41,9 +42,9 @@ namespace F23Bag.Winforms.Controls
             var oldData = data;
             if (Property != null)
             {
-                data = Property.GetValue(data);
+                if (data == null || !(data.GetType().GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ISelector<>)))) data = Property.GetValue(data);
                 lblTitle.Text = Context.I18n.GetTranslation(Label);
-                if (data == null) Property.SetValue(oldData, data = Activator.CreateInstance(Property.PropertyType));
+                if (data == null) Property.SetValue(oldData, data = Context.Resolve(Property.PropertyType));
             }
 
             if (Property == null)
@@ -66,14 +67,16 @@ namespace F23Bag.Winforms.Controls
             tableLayout.ColumnStyles.Clear();
             for (var i = 0; i < tableLayout.ColumnCount; i++)
             {
-                var max = tableLayout.Controls.OfType<DataControl>().Where(c => tableLayout.GetColumn(c) == i && tableLayout.GetColumnSpan(c) == 1).Max(c => c.Width);
+                var ctrls = tableLayout.Controls.OfType<DataControl>().Where(c => tableLayout.GetColumn(c) == i && tableLayout.GetColumnSpan(c) == 1).ToArray();
+                var max = ctrls.Length == 0 ? 0 : ctrls.Max(c => c.Width);
                 tableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, max));
                 width += max;
             }
             tableLayout.RowStyles.Clear();
             for (var i = 0; i < tableLayout.RowCount; i++)
             {
-                var max = tableLayout.Controls.OfType<DataControl>().Where(c => tableLayout.GetRow(c) == i && tableLayout.GetRowSpan(c) == 1).Max(c => c.Height);
+                var ctrls = tableLayout.Controls.OfType<DataControl>().Where(c => tableLayout.GetRow(c) == i && tableLayout.GetRowSpan(c) == 1).ToArray();
+                var max = ctrls.Length == 0 ? 0 : ctrls.Max(c => c.Height);
                 tableLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, max));
                 height += max;
             }
