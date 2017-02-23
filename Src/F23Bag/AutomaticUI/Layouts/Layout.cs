@@ -12,71 +12,106 @@ namespace F23Bag.AutomaticUI.Layouts
     public abstract class Layout
     {
         private readonly IEnumerable<ILayoutProvider> _layoutProviders;
+        private readonly Dictionary<string, object> _options;
 
-        protected Layout(IEnumerable<ILayoutProvider> layoutProviders)
+        protected Layout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string,object> options)
         {
             _layoutProviders = layoutProviders;
+            _options = options;
         }
 
         public Type SelectorType { get; private set; }
-        
-        internal Dictionary<string, object> Options { get; set; }
 
+        internal PropertyInfo SelectorOriginalProperty { get; private set; }
+        
         protected bool IgnoreCloseBehavior { get; private set; }
 
-        public IEnumerable<Layout> LoadSubLayout(Type dataType, bool ignoreCloseBehavior, bool ignoreSelector)
+        /// <summary>
+        /// Return the DataGrid layout for a type.
+        /// </summary>
+        /// <param name="dataType">Type for which a DataGrid layout is needed.</param>
+        /// <returns>DataGrid layout for the type.</returns>
+        public DataGridLayout GetDataGridLayout(Type dataType)
         {
-            return Load(dataType, _layoutProviders, ignoreCloseBehavior, dataType, ignoreSelector, Options);
+            return (DataGridLayout)Load(dataType, _layoutProviders, true, dataType, true, _options, true);
         }
 
-        public static IEnumerable<Layout> Load(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+        /// <summary>
+        /// Return the layout for a type.
+        /// </summary>
+        /// <param name="dataType">Type for which a layout is needed.</param>
+        /// <returns>Layout for the type.</returns>
+        public Layout GetCreateUpdateLayout(Type dataType)
         {
-            return Load(dataType, layoutProviders, false, dataType, true, new Dictionary<string, object>());
+            return Load(dataType, _layoutProviders, false, dataType, true, _options, false);
         }
 
-        private static IEnumerable<Layout> Load(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, bool ignoreCloseBehavior, Type realDataType, bool ignoreSelector, Dictionary<string,object> options)
+        /// <summary>
+        /// Return the layout for a property.
+        /// </summary>
+        /// <remarks>The returned layout can be a layout for a selector. SelectorType must be checked on the returned layout.</remarks>
+        /// <param name="property">Property for which a layout is needed.</param>
+        /// <param name="owner">Instance of the property's class.</param>
+        /// <returns>Layout for the property.</returns>
+        public Layout GetCreateUpdateLayout(PropertyInfo property, object owner)
         {
-            IEnumerable<Layout> layouts = null;
+            var value = property.GetValue(owner);
+            var layout = Load(property.PropertyType, _layoutProviders, true, value == null ? property.PropertyType : value.GetType(), false, _options, false);
+            if (layout.SelectorType != null) layout.SelectorOriginalProperty = property;
+            return layout;
+        }
 
-            if (!ignoreSelector)
+        /// <summary>
+        /// Return the layout for a parameter.
+        /// </summary>
+        /// <remarks>The returned layout can be a layout for a selector. SelectorType must be checked on the returned layout.</remarks>
+        /// <param name="property">Parameter for which a layout is needed.</param>
+        /// <returns>Layout for the parameter.</returns>
+        public Layout GetCreateUpdateLayout(ParameterInfo parameter)
+        {
+            return Load(parameter.ParameterType, _layoutProviders, true, parameter.ParameterType, false, _options, false);
+        }
+
+        internal static Layout Load(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, bool ignoreCloseBehavior, Type realDataType, bool ignoreSelector, Dictionary<string, object> options, bool dataGridLayoutAsked)
+        {
+            if (!dataGridLayoutAsked && !ignoreSelector)
             {
-                // search layouts for a selector first
+                // search layout for a selector first
                 var selectorInterfaceType = typeof(ISelector<>).MakeGenericType(dataType);
                 var selectorLayoutProvider = layoutProviders.FirstOrDefault(lp => selectorInterfaceType.IsAssignableFrom(lp.LayoutFor));
-                layouts = selectorLayoutProvider?.GetLayouts(selectorLayoutProvider?.LayoutFor, layoutProviders, options).ToList();
-
-                if (layouts != null)
-                    foreach (var layout in layouts)
-                        layout.SelectorType = selectorLayoutProvider.LayoutFor;
+                var selectorLayout = selectorLayoutProvider.GetCreateUpdateLayout(selectorLayoutProvider.LayoutFor, layoutProviders, options);
+                if (selectorLayout != null)
+                {
+                    selectorLayout.SelectorType = selectorLayoutProvider.LayoutFor;
+                    return selectorLayout;
+                }
             }
 
-            var noLayout = layouts == null || !layouts.Any();
-            if (noLayout)
-            {
-                // search layouts for the data type.
-                layouts = layoutProviders.FirstOrDefault(lp => lp.LayoutFor == dataType)?.GetLayouts(realDataType, layoutProviders, options).ToList();
-                noLayout = layouts == null || !layouts.Any();
-            }
+            Func<ILayoutProvider, Type, Layout> getLayout = (lp, dt) => lp?.GetCreateUpdateLayout(dt, layoutProviders, options);
+            if (dataGridLayoutAsked) getLayout = (lp, dt) => lp?.GetDataGridLayout(dt, layoutProviders, options);
 
-            // search layouts for the generic definiion
-            if (noLayout && dataType.IsGenericType) layouts = Load(dataType.GetGenericTypeDefinition(), layoutProviders, ignoreCloseBehavior, realDataType, ignoreSelector, new Dictionary<string, object>(options));
+            // search layout for the data type.
+            var layout = getLayout(layoutProviders.FirstOrDefault(lp => lp.LayoutFor == dataType), realDataType);
+
+            // search layout for the generic definiion
+            if (layout == null && dataType.IsGenericType) layout = Load(dataType.GetGenericTypeDefinition(), layoutProviders, ignoreCloseBehavior, realDataType, ignoreSelector, new Dictionary<string, object>(options), dataGridLayoutAsked);
 
             // search layouts for the base type
-            if (noLayout && dataType.BaseType != typeof(object)) layouts = Load(dataType.BaseType, layoutProviders, ignoreCloseBehavior, realDataType, ignoreSelector, new Dictionary<string, object>(options));
+            if (layout == null && dataType.BaseType != typeof(object)) layout = Load(dataType.BaseType, layoutProviders, ignoreCloseBehavior, realDataType, ignoreSelector, new Dictionary<string, object>(options), dataGridLayoutAsked);
 
-            if (layouts == null || !layouts.Any())
+            if (layout == null)
             {
                 // create a default layout
                 var members = realDataType.GetMembers().Where(mb => !(mb is ConstructorInfo) && !(mb is FieldInfo) && !(mb is EventInfo) && mb.DeclaringType != typeof(object) && (!(mb is MethodInfo) || !((MethodInfo)mb).IsSpecialName)).OrderBy(mb => mb.Name).ToArray();
-                layouts = new[] { new FlowLayout(layoutProviders, FlowDirectionEnum.Vertical, members.Select(mb => new OneMemberLayout(layoutProviders, mb, false, null, null))) };
+                if (dataGridLayoutAsked)
+                    layout = new DataGridLayout(layoutProviders, options, members.Select(mb => new OneMemberLayout(layoutProviders, options, mb, false, null, null)), null, null);
+                else
+                    layout = new FlowLayout(layoutProviders, options, FlowDirectionEnum.Vertical, members.Select(mb => new OneMemberLayout(layoutProviders, options, mb, false, null, null)));
             }
 
-            foreach (var layout in layouts)
-            {
-                layout.IgnoreCloseBehavior = ignoreCloseBehavior;
-            }
+            layout.IgnoreCloseBehavior = ignoreCloseBehavior;
 
-            return layouts;
+            return layout;
         }
     }
 }

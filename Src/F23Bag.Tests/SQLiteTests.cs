@@ -45,9 +45,9 @@ namespace F23Bag.Tests
             ExecuteNonQuery("INSERT INTO OBJET2(VALUE2) VALUES(2.2)");
             ExecuteNonQuery("INSERT INTO OBJET2(VALUE2) VALUES(3.2)");
 
-            ExecuteNonQuery("INSERT INTO OBJET1(NAME, IDFK_OBJET2) VALUES('obj1', 1)");
-            ExecuteNonQuery("INSERT INTO OBJET1(NAME, IDFK_OBJET2) VALUES('obj2', 2)");
-            ExecuteNonQuery("INSERT INTO OBJET1(NAME, IDFK_OBJET2) VALUES('obj3', 3)");
+            ExecuteNonQuery("INSERT INTO OBJET1(NAME, NULL_NUMBER, IDFK_OBJET2) VALUES('obj1', NULL, 1)");
+            ExecuteNonQuery("INSERT INTO OBJET1(NAME, NULL_NUMBER, IDFK_OBJET2) VALUES('obj2', 5, 2)");
+            ExecuteNonQuery("INSERT INTO OBJET1(NAME, NULL_NUMBER, IDFK_OBJET2) VALUES('obj3', 7, 3)");
 
             ExecuteNonQuery("INSERT INTO OBJET1_BIS(NAME, IDFK_OBJET2) VALUES('obj1', 1)");
             ExecuteNonQuery("INSERT INTO OBJET1_BIS(NAME, IDFK_OBJET2) VALUES('obj2', 2)");

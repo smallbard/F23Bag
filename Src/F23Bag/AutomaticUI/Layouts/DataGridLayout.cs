@@ -8,11 +8,11 @@ namespace F23Bag.AutomaticUI.Layouts
     /// </summary>
     public class DataGridLayout : Layout
     {
-        internal DataGridLayout(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<OneMemberLayout> columns, IEnumerable<OneMemberLayout> actions, MethodInfo openAction)
-            : base(layoutProviders)
+        internal DataGridLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, IEnumerable<OneMemberLayout> columns, IEnumerable<OneMemberLayout> actions, MethodInfo openAction)
+            : base(layoutProviders, options)
         {
-            Columns = columns;
-            Actions = actions;
+            Columns = columns ?? new OneMemberLayout[] { };
+            Actions = actions ?? new OneMemberLayout[] { };
             OpenAction = openAction;
         }
 

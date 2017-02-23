@@ -81,7 +81,7 @@ namespace F23Bag.Winforms.Controls
         protected override void CustomDisplay(object data)
         {
             Visible = true;
-            var authorization = Context.GetAuthorization(data.GetType());
+            var authorization = Context.Engine.GetAuthorization(data.GetType());
             foreach (var column in gridView.Columns.OfType<DataGridViewColumn>())
             {
                 column.Visible = authorization.IsVisible(data, (MemberInfo)column.Tag);
@@ -158,7 +158,7 @@ namespace F23Bag.Winforms.Controls
 
         private void DisplayData(object data)
         {
-            Context.UIBuilder.Display(_dataGridLayout.LoadSubLayout(data.GetType(), false, true).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(), data, data.ToString());
+            Context.UIBuilder.Display(_dataGridLayout.GetCreateUpdateLayout(data.GetType()), data, data.ToString());
         }
 
         private void GridView_CellClick(object sender, DataGridViewCellEventArgs e)

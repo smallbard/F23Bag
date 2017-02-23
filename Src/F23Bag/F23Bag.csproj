@@ -50,6 +50,7 @@
     <Compile Include="AutomaticUI\IAuthorization.cs" />
     <Compile Include="AutomaticUI\Layouts\ILayoutProvider.cs" />
     <Compile Include="AutomaticUI\Layouts\LayoutBuilder.cs" />
+    <Compile Include="AutomaticUI\MemberController.cs" />
     <Compile Include="AutomaticUI\UIEngine.cs" />
     <Compile Include="AutomaticUI\IUIBuilder.cs" />
     <Compile Include="AutomaticUI\LayoutException.cs" />

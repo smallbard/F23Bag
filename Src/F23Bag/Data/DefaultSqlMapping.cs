@@ -83,6 +83,11 @@ namespace F23Bag.Data
             return _propertyMappers;
         }
 
+        public virtual PropertyInfo GetIdProperty(Type type)
+        {
+            return type.GetProperty("Id");
+        }
+
         protected virtual string GetTableName(Type type)
         {
             return string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
@@ -92,11 +97,11 @@ namespace F23Bag.Data
         {
             if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
-                    GetSqlEquivalent(request, aliasOwner, property.DeclaringType.GetProperty("Id"), inOr),
+                    GetSqlEquivalent(request, aliasOwner, GetIdProperty(property.DeclaringType), inOr),
                     new ColumnAccess(aliasElement, new DML.Identifier(GetColumnName(property))));
             else
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
-                    GetSqlEquivalent(request, aliasElement, property.PropertyType.GetProperty("Id"), inOr),
+                    GetSqlEquivalent(request, aliasElement, GetIdProperty(property.PropertyType), inOr),
                     new ColumnAccess(aliasOwner, new Identifier(GetColumnName(property))));
         }
     }

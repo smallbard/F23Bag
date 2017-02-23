@@ -209,6 +209,19 @@ namespace F23Bag.Tests
             GetRequest<Object1>(q => q.Where(o => new int[] { 5, 6, 7 }.Contains(o.Id))));
         }
 
+        [TestMethod]
+        public void QueryToAst_Exists()
+        {
+            Assert.AreEqual(REL(@"
+            { request skip 0 take 0 
+	            select { column { alias { identifier OBJECT1 } } . { identifier ID } } { column { alias { identifier OBJECT1 } } . { identifier NAME } } { column { alias { identifier OBJECT1 } } . { identifier FULL_DESCRIPTION } } 
+	            where { 
+		            Exists { 
+			            request skip 0 take 0 select { column { alias { identifier OBJECT1 } } . { identifier * } }
+                        where { Equal : { column { alias { identifier OBJECT1 } } . { identifier ID } } : { column { alias { identifier OBJECT1 } } . { identifier ID } } } }"),
+                GetRequest<Object1>(q => q.Where(o => new Query<Object1>(new DbQueryProvider(new FakeSqlProvider(new FakeSqlTraductor()), new DefaultSqlMapping(null), null, null)).Where(o2 => o2.Id == o.Id).Any())));
+        }
+
         private string GetRequest<T>(Func<IQueryable<T>, object> defineQuery, params IExpresstionToSqlAst[] converters)
         {
             return GetRequest(defineQuery, null, converters);

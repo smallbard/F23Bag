@@ -34,7 +34,7 @@ namespace F23Bag.Data
 
             _operations.Add(() =>
             {
-                var idProperty = o.GetType().GetProperty("Id");
+                var idProperty = _sqlMapping.GetIdProperty(o.GetType());
 
                 var fromAlias = new AliasDefinition(_sqlMapping.GetSqlEquivalent(o.GetType()));
                 var request = new Request()

@@ -7,8 +7,8 @@ namespace F23Bag.AutomaticUI.Layouts
     /// </summary>
     public class GridLayout : Layout
     {
-        internal GridLayout(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<LayoutCellPosition> layoutCellPositions)
-            : base(layoutProviders)
+        internal GridLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, IEnumerable<LayoutCellPosition> layoutCellPositions)
+            : base(layoutProviders, options)
         {
             LayoutCellPositions = layoutCellPositions;
         }

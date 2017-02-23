@@ -112,6 +112,15 @@ namespace F23Bag.Tests
         }
 
         [TestMethod]
+        public void QueriesWithExists()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            Assert.AreEqual(3, GetQuery<Objet1>().Where(o => GetQuery<Objet1>().Where(o2 => o2.Id == o.Id).Any()).Count());
+            Assert.AreEqual(0, GetQuery<Objet1>().Where(o => !GetQuery<Objet1>().Where(o2 => o2.Id == o.Id).Any()).Count());
+        }
+
+        [TestMethod]
         public void EagerLoading()
         {
             if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
@@ -361,6 +370,8 @@ namespace F23Bag.Tests
             public int Id { get; set; }
 
             public string Name { get; set; }
+
+            public int? NullNumber { get; set; }
 
             public Objet2 Objet2 { get; set; }
 

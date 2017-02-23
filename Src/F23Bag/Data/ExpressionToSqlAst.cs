@@ -379,6 +379,17 @@ namespace F23Bag.Data
                 if (m.Method.Name.StartsWith("OrderBy")) _request.Orders.Clear();
                 _request.Orders.Add(new OrderElement(SqlAstNode, m.Method.Name == "OrderBy" || m.Method.Name == "ThenBy"));
             }
+            else if (m.Method.Name == "Any")
+            {
+                if (m.Method.GetParameters().Length == 2)
+                    throw new NotSupportedException("Only method 'Any' with no parameters is supported.");
+
+                var anyRequest = _request;
+                if (anyRequest.Select.Count == 0) anyRequest.Select.Add(new DML.SelectInfo(new ColumnAccess(anyRequest.FromAlias, new DML.Identifier("*")), null));
+                _request = _request.ParentRequest;
+
+                SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Exists, anyRequest);
+            }
             else if (m.Method.GetParameters().Length == 2)
             {
                 var memberSelection = (LambdaExpression)StripQuotes(m.Arguments[1]);

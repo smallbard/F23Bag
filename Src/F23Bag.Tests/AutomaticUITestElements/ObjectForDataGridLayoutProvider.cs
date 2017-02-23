@@ -17,7 +17,12 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
+        public DataGridLayout GetDataGridLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
+        {
+            return (DataGridLayout)GetCreateUpdateLayout(dataType, layoutProviders, options);
+        }
+
+        public Layout GetCreateUpdateLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
             return new LayoutBuilder<ObjectForDataGridLayout>(dataType, layoutProviders, options)
                 .DataGrid(dg => dg
@@ -26,7 +31,7 @@ namespace F23Bag.Tests.AutomaticUITestElements
                     .Column(o => o.P2)
                     .Action(o => (Action)o.A1, "Action 1")
                     .Open(o => (Action)o.Open))
-                .GetLayouts();
+                .GetLayout();
         }
     }
 }

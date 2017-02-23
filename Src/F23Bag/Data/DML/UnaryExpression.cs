@@ -39,6 +39,7 @@
         Average,
         Lower,
         Upper,
-        Count
+        Count,
+        Exists
     }
 }

@@ -8,8 +8,8 @@ namespace F23Bag.AutomaticUI.Layouts
     /// </summary>
     public class TabsLayout : Layout
     {
-        internal TabsLayout(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<Tuple<string, Layout>> tabs)
-            : base(layoutProviders)
+        internal TabsLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, IEnumerable<Tuple<string, Layout>> tabs)
+            : base(layoutProviders, options)
         {
             Tabs = tabs;
         }

@@ -17,11 +17,16 @@ namespace F23Bag.Tests.AutomaticUITestElements
             }
         }
 
-        public IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
+        public DataGridLayout GetDataGridLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
+        {
+            return null;
+        }
+
+        public Layout GetCreateUpdateLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
         {
             return new LayoutBuilder<SelectorForObjectForSelector>(dataType, layoutProviders, options)
                 .Horizontal(l => l.Property(o => o.SelectedValue))
-                .GetLayouts();
+                .GetLayout();
         }
     }
 }

@@ -9,6 +9,6 @@ namespace F23Bag.Winforms
     {
         bool Accept(PropertyInfo property, OneMemberLayout layout);
 
-        DataControl GetControl(PropertyInfo property, OneMemberLayout layout, WinformContext context);
+        DataControl GetControl(object data, PropertyInfo property, OneMemberLayout layout, WinformContext context);
     }
 }

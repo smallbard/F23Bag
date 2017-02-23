@@ -55,7 +55,7 @@ namespace F23Bag.Winforms.Controls
 
         private void AddChildNode(TreeNodeCollection nodes, TreeLayout treeLayout, object child)
         {
-            nodes.Add(new TreeNode(child.ToString()) { Tag = Tuple.Create(child, treeLayout.LoadSubLayout(child.GetType(), false, true).FirstOrDefault()) });
+            nodes.Add(new TreeNode(child.ToString()) { Tag = Tuple.Create(child, treeLayout.GetCreateUpdateLayout(child.GetType())) });
         }
     }
 }

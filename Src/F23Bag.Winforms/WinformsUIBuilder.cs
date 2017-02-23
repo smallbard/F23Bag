@@ -16,10 +16,10 @@ namespace F23Bag.Winforms
         private bool _isApplicationLaunch;
         private readonly WinformContext _context;
 
-        public WinformsUIBuilder(IEnumerable<IControlConvention> controlsConventions, bool isApplicationLaunch, Func<Type, object> resolve, I18n i18n, Func<Type, IAuthorization> getAuthorization)
+        public WinformsUIBuilder(IEnumerable<IControlConvention> controlsConventions, bool isApplicationLaunch, Func<Type, object> resolve, I18n i18n, UIEngine engine)
         {
             ControlConventions = controlsConventions.OrderBy(c => c.GetType().Assembly == GetType().Assembly ? 1 : 0).ToList();
-            _context = new WinformContext(this, i18n, getAuthorization, resolve);
+            _context = new WinformContext(this, i18n, engine, resolve);
 
             if (_isApplicationLaunch = isApplicationLaunch)
             {
@@ -32,7 +32,7 @@ namespace F23Bag.Winforms
 
         public void Display(Layout layout, object data, string label)
         {
-            var control = GetDataControl(layout, data, null);
+            var control = GetControlForLayout(layout, data, null);
             using (var form = new Form())
             {
                 form.Controls.Add(control);
@@ -62,19 +62,16 @@ namespace F23Bag.Winforms
             }
         }
 
-        private DataControl GetDataControl(Layout layout, object data, PropertyInfo ownerProperty)
+        private DataControl GetControlForLayout(Layout layout, object data, PropertyInfo ownerProperty)
         {
-            if(layout.SelectorType != null)
-            {
-                _context.SelectorOwnerProperties[layout] = ownerProperty;
-                if (!layout.SelectorType.IsAssignableFrom(data.GetType())) data = _context.Resolve(layout.SelectorType);
-            }
+            if (layout.SelectorType != null && !layout.SelectorType.IsAssignableFrom(data.GetType()))
+                data = _context.Resolve(layout.SelectorType);
 
             if (layout is FlowLayout)
             {
                 var flowLayout = (FlowLayout)layout;
                 var flowControl = new FlowControl(layout, _context, flowLayout.FlowDirection == FlowDirectionEnum.Vertical ? FlowDirection.TopDown : FlowDirection.LeftToRight);
-                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetDataControl(subLayout, data, ownerProperty));
+                foreach (var subLayout in flowLayout.ChildLayout) flowControl.AddControl(GetControlForLayout(subLayout, data, ownerProperty));
                 return flowControl;
             }
             else if (layout is OneMemberLayout)
@@ -86,27 +83,12 @@ namespace F23Bag.Winforms
                 if (property != null)
                 {
                     var idc = ControlConventions.FirstOrDefault(c => c.Accept(property, memberLayout));
-                    if (idc != null) return idc.GetControl(property, memberLayout, _context);
+                    if (idc != null) return idc.GetControl(data, property, memberLayout, _context);
 
-                    if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
+                    if (property.PropertyType.IsClass)
                     {
-                        var dataGridLayout = layout.LoadSubLayout(property.PropertyType.GetGenericArguments()[0], true, true).FirstOrDefault(l => l is DataGridLayout);
-                        if (dataGridLayout == null) throw new WinformsException("No datagrid layout for " + property.PropertyType.GetGenericArguments()[0].FullName);
-
-                        var dataGridControl = (DataGridControl)GetDataControl(dataGridLayout, data, property);
-                        dataGridControl.Property = property;
-                        dataGridControl.Label = memberLayout.Label;
-
-                        return dataGridControl;
-                    }
-                    else if (property.PropertyType.IsClass)
-                    {
-                        var isSelector = property.Name == nameof(ISelector<object>.SelectedValue) && typeof(ISelector<>).MakeGenericType(property.PropertyType).IsAssignableFrom(property.DeclaringType);
-                        var valueType = property.GetValue(data)?.GetType() ?? property.PropertyType;
-
-                        var subLayout = layout.LoadSubLayout(valueType, true, isSelector).FirstOrDefault(l => !(l is DataGridLayout));
-
-                        var container = GetDataControl(subLayout, data, isSelector ? ownerProperty : property);
+                        var subLayout = layout.GetCreateUpdateLayout(property, data);
+                        var container = GetControlForLayout(subLayout, data, property);
                         if (container is FlowControl)
                         {
                             ((FlowControl)container).Property = property;
@@ -134,29 +116,15 @@ namespace F23Bag.Winforms
                 var tableControl = new TableControl(layout, _context);
 
                 foreach (var layoutCellPosition in gridLayout.LayoutCellPositions)
-                    tableControl.AddControl(GetDataControl(layoutCellPosition.Layout, data, ownerProperty), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
+                    tableControl.AddControl(GetControlForLayout(layoutCellPosition.Layout, data, ownerProperty), layoutCellPosition.Column, layoutCellPosition.Row, layoutCellPosition.ColumnSpan, layoutCellPosition.RowSpan);
 
                 return tableControl;
-            }
-            else if (layout is DataGridLayout)
-            {
-                var dataGridLayout = (DataGridLayout)layout;
-                var dataGridControl = new DataGridControl(layout, _context, dataGridLayout.OpenAction);
-
-                foreach (var subLayout in dataGridLayout.Columns)
-                    if (subLayout.Member is PropertyInfo)
-                        dataGridControl.AddColumn((PropertyInfo)subLayout.Member, subLayout.IsEditable, subLayout.Label);
-                    else if (subLayout.Member is MethodInfo)
-                        dataGridControl.AddColumn((MethodInfo)subLayout.Member, subLayout.Label);
-                foreach (var subLayout in dataGridLayout.Actions.Where(l => l.Member is MethodInfo)) dataGridControl.AddAction(subLayout, (MethodInfo)subLayout.Member, subLayout.Label);
-
-                return dataGridControl;
             }
             else if (layout is TabsLayout)
             {
                 var tabsLayout = (TabsLayout)layout;
                 var tabsControl = new TabsControl(layout, _context);
-                foreach (var tab in tabsLayout.Tabs.Where(t => t.Item2 != null)) tabsControl.AddTab(tab.Item1, GetDataControl(tab.Item2, data, ownerProperty));
+                foreach (var tab in tabsLayout.Tabs.Where(t => t.Item2 != null)) tabsControl.AddTab(tab.Item1, GetControlForLayout(tab.Item2, data, ownerProperty));
                 return tabsControl;
             }
             else if (layout is TreeLayout)

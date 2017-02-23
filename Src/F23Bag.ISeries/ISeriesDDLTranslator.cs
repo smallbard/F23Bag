@@ -17,13 +17,13 @@ namespace F23Bag.ISeries
             isAlter = false;
 
             var columnName = sqlMapping.GetColumnName(property);
-            if (property.Name == "Id" && property.PropertyType == typeof(int))
+            if (sqlMapping.GetIdProperty(property.DeclaringType).Name.Equals(property.Name) && property.PropertyType == typeof(int))
                 sql.Append(columnName).Append(" INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY");
             else if ((property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType != typeof(string))
             {
                 if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 {
-                    var idProperty = property.DeclaringType.GetProperty("Id");
+                    var idProperty = sqlMapping.GetIdProperty(property.DeclaringType);
                     sql.Append("ALTER TABLE ")
                         .Append(((Identifier)sqlMapping.GetSqlEquivalent(property.PropertyType.GetGenericArguments()[0])).IdentifierName)
                         .Append(" ADD COLUMN ")
@@ -38,9 +38,9 @@ namespace F23Bag.ISeries
                 }
                 else
                 {
-                    sql.Append(columnName).Append(' ').Append(GetSqlTypeName(property.PropertyType.GetProperty("Id").PropertyType));
+                    sql.Append(columnName).Append(' ').Append(GetSqlTypeName(sqlMapping.GetIdProperty(property.PropertyType).PropertyType));
                     if (!_inUnitTest)
-                        sql.Append(" REFERENCES ").Append(((Identifier)sqlMapping.GetSqlEquivalent(property.PropertyType)).IdentifierName).Append('(').Append(sqlMapping.GetColumnName(property.PropertyType.GetProperty("Id"))).Append(')');
+                        sql.Append(" REFERENCES ").Append(((Identifier)sqlMapping.GetSqlEquivalent(property.PropertyType)).IdentifierName).Append('(').Append(sqlMapping.GetColumnName(sqlMapping.GetIdProperty(property.PropertyType))).Append(')');
                 }
             }
             else

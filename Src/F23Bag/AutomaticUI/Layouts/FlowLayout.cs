@@ -7,8 +7,8 @@ namespace F23Bag.AutomaticUI.Layouts
     /// </summary>
     public class FlowLayout : Layout
     {
-        internal FlowLayout(IEnumerable<ILayoutProvider> layoutProviders, FlowDirectionEnum flowDirection, IEnumerable<Layout> childLayouts)
-            : base(layoutProviders)
+        internal FlowLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, FlowDirectionEnum flowDirection, IEnumerable<Layout> childLayouts)
+            : base(layoutProviders, options)
         {
             FlowDirection = flowDirection;
             ChildLayout = childLayouts;

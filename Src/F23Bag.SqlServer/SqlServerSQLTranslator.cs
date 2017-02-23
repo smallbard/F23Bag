@@ -200,6 +200,9 @@ namespace F23Bag.SqlServer
                 case UnaryExpressionTypeEnum.Upper:
                     _sqlElements.Push(_sqlElements.Pop().Insert(0, "UPPER(").Append(')'));
                     break;
+                case UnaryExpressionTypeEnum.Exists:
+                    _sqlElements.Push(_sqlElements.Pop().Insert(0, "EXISTS(").Append(')'));
+                    break;
             }
         }
 

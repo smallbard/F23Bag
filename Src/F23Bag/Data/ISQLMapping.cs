@@ -14,5 +14,7 @@ namespace F23Bag.Data
         string GetColumnName(PropertyInfo property);
 
         IEnumerable<IPropertyMapper> GetCustomPropertiesMappers();
+
+        PropertyInfo GetIdProperty(Type type);
     }
 }

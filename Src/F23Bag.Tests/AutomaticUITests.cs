@@ -252,7 +252,7 @@ namespace F23Bag.Tests
             Assert.IsInstanceOfType(builder.Layouts[data], typeof(FlowLayout));
             var flowLayout = (FlowLayout)builder.Layouts[data];
 
-            var layout = flowLayout.LoadSubLayout(typeof(ObjectForSelector), false, false).First();
+            var layout = flowLayout.GetCreateUpdateLayout(typeof(ObjectForSelectorParent).GetProperty(nameof(ObjectForSelectorParent.Object)), data);
             Assert.IsInstanceOfType(layout, typeof(FlowLayout));
             var selectorLayout = (FlowLayout)layout;
             Assert.AreEqual(FlowDirectionEnum.Horizontal, selectorLayout.FlowDirection);

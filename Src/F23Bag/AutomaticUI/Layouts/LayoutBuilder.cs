@@ -24,14 +24,15 @@ namespace F23Bag.AutomaticUI.Layouts
             _options = options;
         }
 
-        public IEnumerable<Layout> GetLayouts()
+        public Layout GetLayout()
         {
-            return _getLayouts.Select(gl =>
-            {
-                var layout = gl();
-                layout.Options = _options;
-                return layout;
-            });
+            if (_getLayouts.Count == 0) return null;
+            return _getLayouts[_getLayouts.Count - 1]();
+        }
+
+        internal IEnumerable<Layout> GetLayouts()
+        {
+            return _getLayouts.Select(gl => gl());
         }
 
         public LayoutBuilder<TData> Grid(Action<GridLayoutBuilder> defineGrid)
@@ -45,7 +46,7 @@ namespace F23Bag.AutomaticUI.Layouts
         public LayoutBuilder<TData> Horizontal(Action<LayoutBuilder<TData>> defineFlow)
         {
             var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
-            _getLayouts.Add(() => new FlowLayout(_layoutProviders, FlowDirectionEnum.Horizontal, layoutBuilder.GetLayouts()));
+            _getLayouts.Add(() => new FlowLayout(_layoutProviders, _options, FlowDirectionEnum.Horizontal, layoutBuilder.GetLayouts()));
             defineFlow(layoutBuilder);
             return this;
         }
@@ -53,7 +54,7 @@ namespace F23Bag.AutomaticUI.Layouts
         public LayoutBuilder<TData> Vertical(Action<LayoutBuilder<TData>> defineFlow)
         {
             var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
-            _getLayouts.Add(() => new FlowLayout(_layoutProviders, FlowDirectionEnum.Vertical, layoutBuilder.GetLayouts()));
+            _getLayouts.Add(() => new FlowLayout(_layoutProviders, _options, FlowDirectionEnum.Vertical, layoutBuilder.GetLayouts()));
             defineFlow(layoutBuilder);
             return this;
         }
@@ -76,7 +77,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
         public LayoutBuilder<TData> Tree(Action<TreeLayoutbuilder> defineTree)
         {
-            var tlb = new TreeLayoutbuilder(_dataType, _layoutProviders);
+            var tlb = new TreeLayoutbuilder(_dataType, _layoutProviders, _options);
             _getLayouts.Add(tlb.GetLayout);
             defineTree(tlb);
             return this;
@@ -97,7 +98,7 @@ namespace F23Bag.AutomaticUI.Layouts
                 itemsSourceMb = itemsMbAccess.Member;
             }
 
-            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, mbAccess.Member, false, label, itemsSourceMb));
+            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, _options, mbAccess.Member, false, label, itemsSourceMb));
 
             return this;
         }
@@ -119,7 +120,7 @@ namespace F23Bag.AutomaticUI.Layouts
             var methodInfo = (((method.Body as UnaryExpression)?.Operand as MethodCallExpression)?.Object as ConstantExpression).Value as MethodInfo;
             if (methodInfo == null) throw new ArgumentException("method must be a delegate instanciation.", nameof(method));
 
-            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, methodInfo, hasCloseBehavior, label, null));
+            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, _options, methodInfo, hasCloseBehavior, label, null));
 
             return this;
         }
@@ -151,7 +152,7 @@ namespace F23Bag.AutomaticUI.Layouts
                 itemsSourceMb = itemsMbAccess.Member;
             }
 
-            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, mbAccess.Member, false, label, itemsSourceMb));
+            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, _options, mbAccess.Member, false, label, itemsSourceMb));
 
             return this;
         }
@@ -177,7 +178,7 @@ namespace F23Bag.AutomaticUI.Layouts
             var methodInfo = (((method.Body as UnaryExpression)?.Operand as MethodCallExpression)?.Object as ConstantExpression).Value as MethodInfo;
             if (methodInfo == null) throw new ArgumentException("method must be a delegate instanciation.", nameof(method));
 
-            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, methodInfo, hasCloseBehavior, label, null));
+            _getLayouts.Add(() => new OneMemberLayout(_layoutProviders, _options, methodInfo, hasCloseBehavior, label, null));
 
             return this;
         }
@@ -200,11 +201,6 @@ namespace F23Bag.AutomaticUI.Layouts
             return this;
         }
 
-        internal Layout GetLastLayout()
-        {
-            return GetLayouts().Last();
-        }
-
         public class GridLayoutBuilder
         {
             private readonly List<Func<LayoutCellPosition>> _getCells;
@@ -223,7 +219,7 @@ namespace F23Bag.AutomaticUI.Layouts
             public GridLayoutBuilder Cell(int column, int row, int colSpan, int rowSpan, Action<LayoutBuilder<TData>> defineCell)
             {
                 var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
-                _getCells.Add(() => new LayoutCellPosition(layoutBuilder.GetLastLayout(), column, row, colSpan, rowSpan));
+                _getCells.Add(() => new LayoutCellPosition(layoutBuilder.GetLayout(), column, row, colSpan, rowSpan));
                 defineCell(layoutBuilder);
                 return this;
             }
@@ -241,7 +237,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
             internal GridLayout GetLayout()
             {
-                return new GridLayout(_layoutProviders, _getCells.Select(gc => gc()));
+                return new GridLayout(_layoutProviders, _options, _getCells.Select(gc => gc()));
             }
         }
 
@@ -252,6 +248,7 @@ namespace F23Bag.AutomaticUI.Layouts
             private readonly List<OneMemberLayout> _actions;
             private readonly IEnumerable<ILayoutProvider> _layoutProviders;
             private readonly Type _dataType;
+            private readonly Dictionary<string, object> _options;
             private MethodInfo _openAction;
 
             internal DataGridLayoutBuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
@@ -261,12 +258,13 @@ namespace F23Bag.AutomaticUI.Layouts
                 _layoutBuilder = new LayoutBuilder<TData>(dataType, layoutProviders, options);
                 _columns = new List<OneMemberLayout>();
                 _actions = new List<OneMemberLayout>();
+                _options = options;
             }
 
             public DataGridLayoutBuilder Column(Expression<Func<TData, object>> property, string label, Expression<Func<TData, System.Collections.IEnumerable>> itemsSource)
             {
                 _layoutBuilder.Property(property, label, itemsSource);
-                _columns.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _columns.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -283,7 +281,7 @@ namespace F23Bag.AutomaticUI.Layouts
             public DataGridLayoutBuilder Column(Expression<Func<TData, Delegate>> method, string label, bool hasCloseBehavior)
             {
                 _layoutBuilder.Method(method, label, hasCloseBehavior);
-                _columns.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _columns.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -300,7 +298,7 @@ namespace F23Bag.AutomaticUI.Layouts
             public DataGridLayoutBuilder Action(Expression<Func<TData, Delegate>> method, string label, bool hasCloseBehavior)
             {
                 _layoutBuilder.Method(method, label, hasCloseBehavior);
-                _actions.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _actions.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -319,7 +317,7 @@ namespace F23Bag.AutomaticUI.Layouts
             {
                 if (!typeof(TInheritsData).IsAssignableFrom(_dataType)) return this;
                 _layoutBuilder.Property(property, label, itemsSource);
-                _columns.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _columns.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -340,7 +338,7 @@ namespace F23Bag.AutomaticUI.Layouts
             {
                 if (!typeof(TInheritsData).IsAssignableFrom(_dataType)) return this;
                 _layoutBuilder.Method(method, label, hasCloseBehavior);
-                _columns.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _columns.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -361,7 +359,7 @@ namespace F23Bag.AutomaticUI.Layouts
             {
                 if (!typeof(TInheritsData).IsAssignableFrom(_dataType)) return this;
                 _layoutBuilder.Method(method, label, hasCloseBehavior);
-                _actions.Add((OneMemberLayout)_layoutBuilder.GetLastLayout());
+                _actions.Add((OneMemberLayout)_layoutBuilder.GetLayout());
                 return this;
             }
 
@@ -394,7 +392,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
             internal DataGridLayout GetLayout()
             {
-                return new DataGridLayout(_layoutProviders, _columns, _actions, _openAction);
+                return new DataGridLayout(_layoutProviders, _options, _columns, _actions, _openAction);
             }
         }
 
@@ -416,7 +414,7 @@ namespace F23Bag.AutomaticUI.Layouts
             public TabsLayoutBuilder Tab(string tabName, Action<LayoutBuilder<TData>> defineTab)
             {
                 var layoutBuilder = new LayoutBuilder<TData>(_dataType, _layoutProviders, _options);
-                _tabs.Add(Tuple.Create(tabName, new Func<Layout>(layoutBuilder.GetLastLayout)));
+                _tabs.Add(Tuple.Create(tabName, new Func<Layout>(layoutBuilder.GetLayout)));
                 defineTab(layoutBuilder);
                 return this;
             }
@@ -429,7 +427,7 @@ namespace F23Bag.AutomaticUI.Layouts
 
             internal TabsLayout GetLayout()
             {
-                return new TabsLayout(_layoutProviders, _tabs.Select(t => Tuple.Create(t.Item1, t.Item2())));
+                return new TabsLayout(_layoutProviders, _options, _tabs.Select(t => Tuple.Create(t.Item1, t.Item2())));
             }
         }
 
@@ -438,11 +436,13 @@ namespace F23Bag.AutomaticUI.Layouts
             private readonly Type _dataType;
             private readonly IEnumerable<ILayoutProvider> _layoutProviders;
             private MemberInfo _children;
+            private readonly Dictionary<string, object> _options;
 
-            internal TreeLayoutbuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders)
+            internal TreeLayoutbuilder(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options)
             {
                 _dataType = dataType;
                 _layoutProviders = layoutProviders;
+                _options = options;
             }
 
             public void Children(Expression<Func<TData, System.Collections.IEnumerable>> childrenProperty)
@@ -463,7 +463,7 @@ namespace F23Bag.AutomaticUI.Layouts
             
             internal TreeLayout GetLayout()
             {
-                return new TreeLayout(_layoutProviders, _children);
+                return new TreeLayout(_layoutProviders, _options, _children);
             }
         }
     }

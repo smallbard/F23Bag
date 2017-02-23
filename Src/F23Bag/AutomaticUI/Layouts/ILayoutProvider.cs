@@ -14,12 +14,21 @@ namespace F23Bag.AutomaticUI.Layouts
         Type LayoutFor { get; }
 
         /// <summary>
-        /// Return the layouts for the type.
+        /// Return the DataGridLayout for a type.
         /// </summary>
         /// <param name="dataType">Type corresponding to the layouts (equals or inherits LayoutFor).</param>
         /// <param name="layoutProviders">List of all the layout providers.</param>
         /// <param name="options">Dictionary of options for the layout definition.</param>
-        /// <returns>List of layouts for dataType.</returns>
-        IEnumerable<Layout> GetLayouts(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options);
+        /// <returns>The DataGridLayout.</returns>
+        DataGridLayout GetDataGridLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options);
+
+        /// <summary>
+        /// Return the layout for a type.
+        /// </summary>
+        /// <param name="dataType">Type corresponding to the layouts (equals or inherits LayoutFor).</param>
+        /// <param name="layoutProviders">List of all the layout providers.</param>
+        /// <param name="options">Dictionary of options for the layout definition.</param>
+        /// <returns>The type layout.</returns>
+        Layout GetCreateUpdateLayout(Type dataType, IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options);
     }
 }

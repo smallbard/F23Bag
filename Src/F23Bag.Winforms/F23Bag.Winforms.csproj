@@ -81,6 +81,7 @@
     <Compile Include="Controls\TreeControl.Designer.cs">
       <DependentUpon>TreeControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="Conventions\DataGridConvention.cs" />
     <Compile Include="Conventions\DateTimeConvention.cs" />
     <Compile Include="Conventions\EnumConvention.cs" />
     <Compile Include="Conventions\NumericConvention.cs" />

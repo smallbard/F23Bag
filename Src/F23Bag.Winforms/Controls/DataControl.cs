@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using F23Bag.Domain;
 using F23Bag.AutomaticUI.Layouts;
 using System.ComponentModel;
+using F23Bag.AutomaticUI;
 
 namespace F23Bag.Winforms.Controls
 {
@@ -13,7 +14,7 @@ namespace F23Bag.Winforms.Controls
         protected static readonly Color cstForeColor = Color.FromArgb(-16757865);
         protected static readonly Color cstBackColor = Color.White;
         private readonly Layout _layout;
-        private IHasValidation _dataWithValidation;
+        private MemberController _memberController;
         private IHasInteractions _dataWithInteractions;
 
         public DataControl(Layout layout, WinformContext context)
@@ -32,37 +33,22 @@ namespace F23Bag.Winforms.Controls
 
         public void Display(object data)
         {
-            if (data is IHasValidation && ValidationIcon != null)
+            if (DisplayedMember != null)
             {
-                _dataWithValidation = (IHasValidation)data;
-                _dataWithValidation.ValidationInfoCreated += DataControl_ValidationInfoCreated;
-            }
+                _memberController = Context.Engine.GetController(DisplayedMember, data, _layout, Context.Resolve);
+                if (ValidationIcon != null) _memberController.ValidationInfoCreated += DataControl_ValidationInfoCreated;
 
-            if (_layout.SelectorType != null)
-            {
-                var realData = data;
-                var selector = data = Context.Resolve(_layout.SelectorType);
+                var authorization = _memberController.Authorization;
+                Visible = authorization.IsVisible(data, DisplayedMember);
+                if (DisplayedMember is PropertyInfo)
+                    Enabled = Enabled && authorization.IsEditable(data, (PropertyInfo)DisplayedMember);
+                else if (DisplayedMember is MethodInfo)
+                    Enabled = Enabled && authorization.IsEnable(data, (MethodInfo)DisplayedMember);
 
-                if (((PropertyInfo)DisplayedMember).Equals(Context.SelectorOwnerProperties[_layout]))
-                {
-                    var selectedValueProperty = _layout.SelectorType.GetProperty(nameof(ISelector<object>.SelectedValue));
-                    selectedValueProperty.SetValue(selector, Context.SelectorOwnerProperties[_layout].GetValue(realData));
-
-                    ((INotifyPropertyChanged)selector).PropertyChanged += (s, e) =>
-                    {
-                        if (e.PropertyName == nameof(ISelector<object>.SelectedValue)) Context.SelectorOwnerProperties[_layout].SetValue(realData, selectedValueProperty.GetValue(selector));
-                    };
-                }
+                data = _memberController.DisplayedObject;
             }
 
             CustomDisplay(data);
-
-            var authorization = Context.GetAuthorization(data.GetType());
-            Visible = authorization.IsVisible(data, DisplayedMember);
-            if (DisplayedMember is PropertyInfo)
-                Enabled = Enabled && authorization.IsEditable(data, (PropertyInfo)DisplayedMember);
-            else if (DisplayedMember is MethodInfo)
-                Enabled = Enabled && authorization.IsEnable(data, (MethodInfo)DisplayedMember);
 
             if (data is IHasInteractions)
             {
@@ -74,8 +60,12 @@ namespace F23Bag.Winforms.Controls
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && _dataWithValidation != null) _dataWithValidation.ValidationInfoCreated -= DataControl_ValidationInfoCreated;
-            if (disposing && _dataWithInteractions != null) _dataWithInteractions.InteractionsChanged -= DataControl_InteractionsChanged;
+            if (disposing)
+            {
+                _memberController?.Dispose();
+                if (_dataWithInteractions != null) _dataWithInteractions.InteractionsChanged -= DataControl_InteractionsChanged;
+            }
+
             base.Dispose(disposing);
         }
 
@@ -102,8 +92,6 @@ namespace F23Bag.Winforms.Controls
 
         private void DataControl_ValidationInfoCreated(object sender, ValidationEventArgs e)
         {
-            if (DisplayedMember == null || !DisplayedMember.Equals(e.Property)) return;
-
             var act = new Action(() =>
             {
                 if (ValidationIcon.Image != null) ValidationIcon.Image.Dispose();

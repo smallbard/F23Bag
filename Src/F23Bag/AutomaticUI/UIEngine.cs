@@ -15,11 +15,11 @@ namespace F23Bag.AutomaticUI
         private readonly IEnumerable<IAuthorization> _authorizations;
         private readonly IUIBuilder _uibuilder;
 
-        public UIEngine(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<IAuthorization> authorizations, Func<Func<Type, IAuthorization>, IUIBuilder> getUiBuilder)
+        public UIEngine(IEnumerable<ILayoutProvider> layoutProviders, IEnumerable<IAuthorization> authorizations, Func<UIEngine, IUIBuilder> getUiBuilder)
         {
             _layoutProviders = layoutProviders ?? new ILayoutProvider[] { };
             _authorizations = authorizations ?? new IAuthorization[] { };
-            _uibuilder = getUiBuilder(GetAuthorization);
+            _uibuilder = getUiBuilder(this);
         }
 
         public void Display(object data)
@@ -31,10 +31,14 @@ namespace F23Bag.AutomaticUI
         public void Display(object data, string label)
         {
             if (data == null) throw new ArgumentNullException(nameof(data));
-
-            var layouts = Layout.Load(data.GetType(), _layoutProviders);
-            var layout = layouts.SkipWhile(l => l is DataGridLayout).FirstOrDefault() ?? layouts.First();
+            var dataType = data.GetType();
+            var layout = Layout.Load(dataType, _layoutProviders, false, dataType, true, new Dictionary<string, object>(), false);
             _uibuilder.Display(layout, data, label);
+        }
+
+        public MemberController GetController(MemberInfo member, object owner, Layout layout, Func<Type, object> resolve)
+        {
+            return new MemberController(member, owner, layout, this, resolve);
         }
 
         public IAuthorization GetAuthorization(Type dataType)

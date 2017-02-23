@@ -76,11 +76,14 @@ namespace F23Bag.Data.Mapping
 
             if ((request.Take > 0 || request.Skip > 0) && request.Orders.Count == 0)
                 for (var i = 0; i < request.Select.Count; i++)
-                    if (request.Select[i].Property.Name == "Id")
+                {
+                    var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType);
+                    if (idProperty != null && idProperty.Name.Equals(request.Select[i].Property.Name))
                     {
                         request.Orders.Add(new OrderElement(request.Select[i].SelectSql, true));
                         break;
                     }
+                }
 
             return request;
         }
@@ -89,11 +92,14 @@ namespace F23Bag.Data.Mapping
         {
             var idIndex = -1;
             for (var i = 0; i < request.Select.Count; i++)
-                if (request.Select[i].Property.Name == "Id")
+            {
+                var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType);
+                if (idProperty != null && idProperty.Name.Equals(request.Select[i].Property.Name))
                 {
                     idIndex = i;
                     break;
                 }
+            }
 
             if (idIndex < 0) return null;
 
@@ -104,18 +110,8 @@ namespace F23Bag.Data.Mapping
         {
 
             if (firstRead)
-            {
                 for (var i = 0; i < _selectMainSimplePropertiesCount; i++)
-                {
-                    var mapper = _mappers?.FirstOrDefault(m => m.Accept(request.Select[i].Property));
-                    if (mapper != null)
-                        mapper.Map(o, request.Select[i].Property, reader, i);
-                    else if (request.Select[i].Property.PropertyType.IsEnum)
-                        request.Select[i].SetPropertyValue(o, Convert.ToInt32(reader[i]));
-                    else
-                        request.Select[i].SetPropertyValue(o, Convert.ChangeType(DBNull.Value.Equals(reader[i]) ? null : reader[i], request.Select[i].Property.PropertyType));
-                }
-            }
+                    MapProperty(o, reader, request, i, _mappers);
 
             var selectIndex = _selectMainSimplePropertiesCount;
             MapLoading(o, reader, request, firstRead, ref selectIndex, LoadingPropertyInfos);
@@ -131,10 +127,10 @@ namespace F23Bag.Data.Mapping
                     if (!firstRead) continue;
 
                     if (isCollection)
-                        lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxyForCollection(lpi, o.GetType().GetProperty("Id").GetValue(o)));
+                        lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxyForCollection(lpi, _sqlMapping.GetIdProperty(o.GetType()).GetValue(o)));
                     else
                     {
-                        var objectId = Convert.ChangeType(reader[_lazyProperties[lpi]], lpi.Property.PropertyType.GetProperty("Id").PropertyType);
+                        var objectId = Convert.ChangeType(reader[_lazyProperties[lpi]], _sqlMapping.GetIdProperty(lpi.Property.PropertyType).PropertyType);
                         if (!DBNull.Value.Equals(objectId)) lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxy(lpi, objectId));
                     }
                 }
@@ -144,17 +140,16 @@ namespace F23Bag.Data.Mapping
                     object element = null;
                     if (firstRead)
                     {
-                        var elementIdProperty = elementType.GetProperty("Id");
+                        var elementIdProperty = _sqlMapping.GetIdProperty(elementType);
                         var idSelectIndex = -1;
-                        if (!isCollection)
-                            for (var i = selectIndex; i < request.Select.Count; i++)
-                                if (request.Select[i].Property == elementIdProperty)
-                                {
-                                    idSelectIndex = i;
-                                    break;
-                                }
+                        for (var i = selectIndex; i < request.Select.Count; i++)
+                            if (request.Select[i].Property.Name == elementIdProperty.Name)
+                            {
+                                idSelectIndex = i;
+                                break;
+                            }
 
-                        if (isCollection || !DBNull.Value.Equals(reader[idSelectIndex]))
+                        if (!DBNull.Value.Equals(reader[idSelectIndex]))
                         {
                             element = isCollection ? new CollectionActivator().CreateInstance(lpi.Property.PropertyType) : _queryProvider.Resolve(lpi.Property.PropertyType);
                             lpi.SetPropertyValue(o, element);
@@ -170,7 +165,7 @@ namespace F23Bag.Data.Mapping
                     {
                         var idIndex = -1;
                         for (var i = selectIndex; i < request.Select.Count; i++)
-                            if (request.Select[i].Property.Name == "Id")
+                            if (_sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType).Name.Equals(request.Select[i].Property.Name))
                             {
                                 idIndex = i;
                                 break;
@@ -193,21 +188,29 @@ namespace F23Bag.Data.Mapping
                         var mappers = _sqlMapping.GetCustomPropertiesMappers();
                         foreach (var property in elementType.GetProperties().Where(p => IsSimpleMappedProperty(p)))
                         {
-                            var indexForLambda = selectIndex;
-                            var mapper = mappers.FirstOrDefault(m => m.Accept(request.Select[indexForLambda].Property));
-                            if (mapper != null)
-                                mapper.Map(o, request.Select[selectIndex].Property, reader, selectIndex);
-                            else
-                                request.Select[selectIndex].SetPropertyValue(element, Convert.ChangeType(DBNull.Value.Equals(reader[selectIndex]) ? null : reader[selectIndex], request.Select[selectIndex].Property.PropertyType));
+                            MapProperty(element, reader, request, selectIndex, mappers);
                             selectIndex++;
                         }
                     }
-
-                    if (element == null) while (selectIndex < request.Select.Count && request.Select[selectIndex].Property.DeclaringType == elementType) selectIndex++;
+                    else
+                        while (selectIndex < request.Select.Count && request.Select[selectIndex].Property.DeclaringType == elementType) selectIndex++;
 
                     MapLoading(element, reader, request, firstRead, ref selectIndex, lpi.SubLoadingPropertyInfo);
                 }
             }
+        }
+
+        private static void MapProperty(object element, IDataRecord reader, Request request, int selectIndex, IEnumerable<IPropertyMapper> mappers)
+        {
+            var selectInfo = request.Select[selectIndex];
+            var mapper = mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
+
+            if (mapper != null)
+                mapper.Map(element, selectInfo.Property, reader, selectIndex);
+            else if (selectInfo.Property.PropertyType.IsEnum)
+                selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
+            else
+                selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
         }
 
         private void AddSelectForSimpleProperties(Request request, Type elementType, AliasDefinition alias)
@@ -225,7 +228,7 @@ namespace F23Bag.Data.Mapping
 
         private static bool IsSimpleMappedProperty(PropertyInfo p)
         {
-            return (!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string) && p.GetCustomAttribute<TransientAttribute>() == null;
+            return ((!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string)) && p.GetCustomAttribute<TransientAttribute>() == null;
         }
 
         private void AddLoading(Request request, AliasDefinition alias, List<LoadingPropertyInfo> loadingPropertyInfos)

@@ -55,14 +55,14 @@ namespace F23Bag.Data.Mapping
             {
                 if (_loadedObject == null)
                 {
-                    if (invocation.Method.Name == "get_Id")
+                    var elementType = _loadingPropertyInfo.Property.PropertyType;
+                    var idProperty = _queryProvider.SqlMapping.GetIdProperty(elementType);
+
+                    if (invocation.Method.Name == "get_" + idProperty.Name)
                     {
                         invocation.ReturnValue = Convert.ChangeType(_objectId, invocation.Method.ReturnType);
                         return;
                     }
-
-                    var elementType = _loadingPropertyInfo.Property.PropertyType;
-                    var idProperty = elementType.GetProperty("Id");
 
                     var request = new Request()
                     {
@@ -157,7 +157,10 @@ namespace F23Bag.Data.Mapping
             {
                 if (_loadedObject == null)
                 {
-                    if (invocation.Method.Name == "get_Id")
+                    var elementType = _loadingPropertyInfo.Property.PropertyType;
+                    var idProperty = _queryProvider.SqlMapping.GetIdProperty(elementType);
+
+                    if (invocation.Method.Name == "get_" + idProperty.Name)
                     {
                         invocation.ReturnValue = Convert.ChangeType(_objectId, invocation.Method.ReturnType);
                         return;
@@ -165,8 +168,6 @@ namespace F23Bag.Data.Mapping
 
                     if (!_loadedObjects.ContainsKey(_objectId))
                     {
-                        var elementType = _loadingPropertyInfo.Property.PropertyType;
-                        var idProperty = elementType.GetProperty("Id");
                         var getId = new PropertyAccessorCompiler(idProperty).GetPropertyValue;
 
                         var request = new Request()

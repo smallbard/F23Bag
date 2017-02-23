@@ -16,7 +16,7 @@ namespace F23Bag.Winforms.Conventions
             return property.PropertyType.IsEnum || (property.PropertyType.IsGenericType && property.PropertyType.GetGenericArguments()[0].IsEnum);
         }
 
-        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout, WinformContext context)
+        public DataControl GetControl(object data, PropertyInfo property, OneMemberLayout layout, WinformContext context)
         {
             return new EnumControl(layout, context, property, layout.Label) { Enabled = layout.IsEditable };
         }

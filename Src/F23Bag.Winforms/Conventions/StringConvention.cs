@@ -16,7 +16,7 @@ namespace F23Bag.Winforms.Conventions
             return property.PropertyType == typeof(string) && layout.ItemsSource == null;
         }
 
-        public DataControl GetControl(PropertyInfo property, OneMemberLayout layout, WinformContext context)
+        public DataControl GetControl(object data, PropertyInfo property, OneMemberLayout layout, WinformContext context)
         {
             return new StringControl(layout, context, property, layout.Label) { Enabled = layout.IsEditable };
         }

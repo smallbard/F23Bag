@@ -13,8 +13,8 @@ namespace F23Bag.AutomaticUI.Layouts
     /// </summary>
     public class TreeLayout : Layout
     {
-        internal TreeLayout(IEnumerable<ILayoutProvider> layoutProviders, MemberInfo children)
-            : base(layoutProviders)
+        internal TreeLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, MemberInfo children)
+            : base(layoutProviders, options)
         {
             Children = children;
         }

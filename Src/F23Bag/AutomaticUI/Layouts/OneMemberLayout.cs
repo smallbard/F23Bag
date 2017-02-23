@@ -10,8 +10,8 @@ namespace F23Bag.AutomaticUI.Layouts
     {
         private readonly bool _hasCloseBehavior;
 
-        internal OneMemberLayout(IEnumerable<ILayoutProvider> layoutProviders, MemberInfo member, bool hasCloseBehavior, string label, MemberInfo itemsSource)
-            : base(layoutProviders)
+        internal OneMemberLayout(IEnumerable<ILayoutProvider> layoutProviders, Dictionary<string, object> options, MemberInfo member, bool hasCloseBehavior, string label, MemberInfo itemsSource)
+            : base(layoutProviders, options)
         {
             Member = member;
             _hasCloseBehavior = hasCloseBehavior;

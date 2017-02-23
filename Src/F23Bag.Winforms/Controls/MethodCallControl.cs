@@ -48,7 +48,7 @@ namespace F23Bag.Winforms.Controls
                     foreach (var d in lst)
                         if (d != null)
                         {
-                            var authorization = Context.GetAuthorization(d.GetType());
+                            var authorization = Context.Engine.GetAuthorization(d.GetType());
                             if (authorization.IsEnable(d, _method)) CallMethod(_layout, d, parameters, _method, false, Context);
                         }
                 }
@@ -61,8 +61,8 @@ namespace F23Bag.Winforms.Controls
             if (hasCloseBehavior && ((returnValue is bool && (bool)returnValue) || !(returnValue is bool)) && Form.ActiveForm != null) Form.ActiveForm.Close();
             if (returnValue != null && !(returnValue is bool))
             {
-                var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
-                builder.Display(layout.LoadSubLayout(returnValue.GetType(), false, true).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(),returnValue, returnValue.ToString());
+                var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.Engine);
+                builder.Display(layout.GetCreateUpdateLayout(returnValue.GetType()),returnValue, returnValue.ToString());
             }
         }
 
@@ -80,8 +80,8 @@ namespace F23Bag.Winforms.Controls
                 {
                     argument = Activator.CreateInstance(parameter.ParameterType);
 
-                    var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.GetAuthorization);
-                    builder.Display(layout.LoadSubLayout(parameter.ParameterType, false, false).SkipWhile(l => l is F23Bag.AutomaticUI.Layouts.DataGridLayout).First(), argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name);
+                    var builder = new WinformsUIBuilder(context.UIBuilder.ControlConventions, false, context.Resolve, context.I18n, context.Engine);
+                    builder.Display(layout.GetCreateUpdateLayout(parameter), argument, method.DeclaringType.FullName + "." + method.Name + "." + parameter.Name);
                 }
                 parameters.Add(argument);
             }
