@@ -73,6 +73,7 @@
     <Compile Include="Data\ISQLProvider.cs" />
     <Compile Include="Data\DML\NameAs.cs" />
     <Compile Include="Data\PropertyAccessorCompiler.cs" />
+    <Compile Include="Data\InversePropertyAttribute.cs" />
     <Compile Include="MetaData\Column.cs" />
     <Compile Include="MetaData\ForeignKey.cs" />
     <Compile Include="MetaData\IMetaDataProvider.cs" />

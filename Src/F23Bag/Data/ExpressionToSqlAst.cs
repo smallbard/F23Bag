@@ -229,22 +229,7 @@ namespace F23Bag.Data
         private Expression VisitQueryableMethodCall(MethodCallExpression m)
         {
             if (m.Method.Name == "Where" || (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 2))
-            {
-                _request = SqlAstNode as Request ?? _request;
-
-                var filter = (LambdaExpression)StripQuotes(m.Arguments[1]);
-                _request.FromAlias.Equivalents.Add(filter.Parameters[0]);
-
-                Visit(filter.Body);
-
-                if (m.Arguments[0].Type.GetGenericArguments()[0].IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Arguments[0].Type.GetGenericArguments()[0].GetGenericTypeDefinition()))
-                    _request.Having = SqlAstNode;
-                else
-                {
-                    _request.Where = _request.Where != null ? new DML.BinaryExpression(BinaryExpressionTypeEnum.And, _request.Where, SqlAstNode) : SqlAstNode;
-                    if (m.Method.Name.StartsWith("First")) _request.Take = 1;
-                }
-            }
+                VisitQueryableWhereOrFirst(m);
             else if (m.Method.Name == "Distinct" && m.Method.GetParameters().Length == 1)
                 _request.HasDistinct = true;
             else if (m.Method.Name == "Select" || m.Method.Name == "SelectMany")
@@ -381,11 +366,11 @@ namespace F23Bag.Data
             }
             else if (m.Method.Name == "Any")
             {
-                if (m.Method.GetParameters().Length == 2)
-                    throw new NotSupportedException("Only method 'Any' with no parameters is supported.");
-
                 var anyRequest = _request;
                 if (anyRequest.Select.Count == 0) anyRequest.Select.Add(new DML.SelectInfo(new ColumnAccess(anyRequest.FromAlias, new DML.Identifier("*")), null));
+
+                if (m.Method.GetParameters().Length == 2) VisitQueryableWhereOrFirst(m);
+
                 _request = _request.ParentRequest;
 
                 SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Exists, anyRequest);
@@ -417,6 +402,24 @@ namespace F23Bag.Data
                 throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
 
             return m;
+        }
+
+        private void VisitQueryableWhereOrFirst(MethodCallExpression m)
+        {
+            _request = SqlAstNode as Request ?? _request;
+
+            var filter = (LambdaExpression)StripQuotes(m.Arguments[1]);
+            _request.FromAlias.Equivalents.Add(filter.Parameters[0]);
+
+            Visit(filter.Body);
+
+            if (m.Arguments[0].Type.GetGenericArguments()[0].IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Arguments[0].Type.GetGenericArguments()[0].GetGenericTypeDefinition()))
+                _request.Having = SqlAstNode;
+            else
+            {
+                _request.Where = _request.Where != null ? new DML.BinaryExpression(BinaryExpressionTypeEnum.And, _request.Where, SqlAstNode) : SqlAstNode;
+                if (m.Method.Name.StartsWith("First")) _request.Take = 1;
+            }
         }
 
         private void VisitNewExpressionArgument(NewExpression newExp, int i, Expression newExpArgument)

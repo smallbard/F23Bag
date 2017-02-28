@@ -32,12 +32,12 @@ namespace F23Bag.Winforms.Controls
 
         protected override void CustomDisplay(object data)
         {
-            var oldData = data;
+            //var oldData = data;
             if (Property != null)
             {
-                data = Property.GetValue(data);
+                //data = Property.GetValue(data);
                 lblTitle.Text = Context.I18n.GetTranslation(Label);
-                if (data == null) Property.SetValue(oldData, data = Context.Resolve(Property.PropertyType));
+                //if (data == null) Property.SetValue(oldData, data = Context.Resolve(Property.PropertyType));
             }
 
             if (Property == null)

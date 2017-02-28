@@ -14,6 +14,7 @@ namespace F23Bag.Data.Mapping
         private readonly ISQLMapping _sqlMapping;
         private readonly DbQueryProvider _queryProvider;
         private readonly Dictionary<LoadingPropertyInfo, int> _lazyProperties;
+        private readonly Dictionary<LoadingPropertyInfo, Tuple<int,int>> _loadingPropertyInfoSelectIndexes;
         private readonly LazyProxyGenerator _lazyProxyGenerator;
         private IEnumerable<IPropertyMapper> _mappers;
         private int _selectMainSimplePropertiesCount;
@@ -24,6 +25,7 @@ namespace F23Bag.Data.Mapping
             _mappers = _sqlMapping.GetCustomPropertiesMappers();
             _queryProvider = queryProvider;
             _lazyProperties = new Dictionary<LoadingPropertyInfo, int>();
+            _loadingPropertyInfoSelectIndexes = new Dictionary<LoadingPropertyInfo, Tuple<int, int>>();
             _lazyProxyGenerator = new LazyProxyGenerator(_queryProvider);
             LoadingPropertyInfos = new List<LoadingPropertyInfo>();
         }
@@ -113,11 +115,10 @@ namespace F23Bag.Data.Mapping
                 for (var i = 0; i < _selectMainSimplePropertiesCount; i++)
                     MapProperty(o, reader, request, i, _mappers);
 
-            var selectIndex = _selectMainSimplePropertiesCount;
-            MapLoading(o, reader, request, firstRead, ref selectIndex, LoadingPropertyInfos);
+            MapLoading(o, reader, request, firstRead, LoadingPropertyInfos);
         }
 
-        private void MapLoading(object o, IDataRecord reader, Request request, bool firstRead, ref int selectIndex, List<LoadingPropertyInfo> loadingPropertyInfos)
+        private void MapLoading(object o, IDataRecord reader, Request request, bool firstRead, List<LoadingPropertyInfo> loadingPropertyInfos)
         {
             foreach (var lpi in loadingPropertyInfos)
             {
@@ -136,13 +137,15 @@ namespace F23Bag.Data.Mapping
                 }
                 else
                 {
+                    var lpiIndexes = _loadingPropertyInfoSelectIndexes[lpi];
+
                     var elementType = isCollection ? lpi.Property.PropertyType.GetGenericArguments()[0] : lpi.Property.PropertyType;
                     object element = null;
                     if (firstRead)
                     {
                         var elementIdProperty = _sqlMapping.GetIdProperty(elementType);
                         var idSelectIndex = -1;
-                        for (var i = selectIndex; i < request.Select.Count; i++)
+                        for (var i = lpiIndexes.Item1; i < lpiIndexes.Item2 + 1; i++)
                             if (request.Select[i].Property.Name == elementIdProperty.Name)
                             {
                                 idSelectIndex = i;
@@ -164,7 +167,7 @@ namespace F23Bag.Data.Mapping
                     else if (isCollection)
                     {
                         var idIndex = -1;
-                        for (var i = selectIndex; i < request.Select.Count; i++)
+                        for (var i = lpiIndexes.Item1; i < lpiIndexes.Item2 + 1; i++)
                             if (_sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType).Name.Equals(request.Select[i].Property.Name))
                             {
                                 idIndex = i;
@@ -174,28 +177,31 @@ namespace F23Bag.Data.Mapping
                         if (idIndex < 0) throw new SQLException("Property Id not found.");
 
                         var collection = (System.Collections.IList)lpi.GetPropertyValue(o);
-                        element = collection[0];
-                        var idProperty = request.Select[idIndex].Property;
-                        if (firstRead = !idProperty.GetValue(element).Equals(reader[idIndex]))
+                        if (collection.Count > 0)
                         {
-                            element = Activator.CreateInstance(elementType);
-                            collection.Add(element);
+                            element = collection[collection.Count - 1];
+                            var idProperty = request.Select[idIndex].Property;
+                            if (firstRead = !idProperty.GetValue(element).Equals(Convert.ChangeType(reader[idIndex], Nullable.GetUnderlyingType(idProperty.PropertyType) ?? idProperty.PropertyType)))
+                            {
+                                element = Activator.CreateInstance(elementType);
+                                collection.Add(element);
+                            }
                         }
+                        else
+                            element = null;
                     }
 
                     if (firstRead && element != null)
                     {
                         var mappers = _sqlMapping.GetCustomPropertiesMappers();
+                        var selectIndex = lpiIndexes.Item1;
                         foreach (var property in elementType.GetProperties().Where(p => IsSimpleMappedProperty(p)))
                         {
-                            MapProperty(element, reader, request, selectIndex, mappers);
-                            selectIndex++;
+                            MapProperty(element, reader, request, selectIndex++, mappers);
                         }
                     }
-                    else
-                        while (selectIndex < request.Select.Count && request.Select[selectIndex].Property.DeclaringType == elementType) selectIndex++;
 
-                    MapLoading(element, reader, request, firstRead, ref selectIndex, lpi.SubLoadingPropertyInfo);
+                    if (element != null) MapLoading(element, reader, request, firstRead, lpi.SubLoadingPropertyInfo);
                 }
             }
         }
@@ -246,7 +252,9 @@ namespace F23Bag.Data.Mapping
                     if (typeof(System.Collections.IEnumerable).IsAssignableFrom(lpi.Property.PropertyType)) elementType = elementType.GetGenericArguments()[0];
                     var newAlias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(request, alias, lpi.Property, true);
 
+                    var startSelectIndex = request.Select.Count;
                     AddSelectForSimpleProperties(request, elementType, newAlias);
+                    _loadingPropertyInfoSelectIndexes[lpi] = Tuple.Create(startSelectIndex, request.Select.Count - 1);
 
                     if (lpi.SubLoadingPropertyInfo.Count > 0) AddLoading(request, newAlias, lpi.SubLoadingPropertyInfo);
                 }

@@ -79,7 +79,7 @@ namespace F23Bag.AutomaticUI.Layouts
                 // search layout for a selector first
                 var selectorInterfaceType = typeof(ISelector<>).MakeGenericType(dataType);
                 var selectorLayoutProvider = layoutProviders.FirstOrDefault(lp => selectorInterfaceType.IsAssignableFrom(lp.LayoutFor));
-                var selectorLayout = selectorLayoutProvider.GetCreateUpdateLayout(selectorLayoutProvider.LayoutFor, layoutProviders, options);
+                var selectorLayout = selectorLayoutProvider?.GetCreateUpdateLayout(selectorLayoutProvider.LayoutFor, layoutProviders, options);
                 if (selectorLayout != null)
                 {
                     selectorLayout.SelectorType = selectorLayoutProvider.LayoutFor;
@@ -93,7 +93,7 @@ namespace F23Bag.AutomaticUI.Layouts
             // search layout for the data type.
             var layout = getLayout(layoutProviders.FirstOrDefault(lp => lp.LayoutFor == dataType), realDataType);
 
-            // search layout for the generic definiion
+            // search layout for the generic definition
             if (layout == null && dataType.IsGenericType) layout = Load(dataType.GetGenericTypeDefinition(), layoutProviders, ignoreCloseBehavior, realDataType, ignoreSelector, new Dictionary<string, object>(options), dataGridLayoutAsked);
 
             // search layouts for the base type

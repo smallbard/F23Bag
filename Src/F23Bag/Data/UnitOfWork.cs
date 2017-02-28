@@ -139,7 +139,9 @@ namespace F23Bag.Data
                 var pac = new PropertyAccessorCompiler(_idProperty);
                 _getId = pac.GetPropertyValue;
                 _setId = pac.SetPropertyValue;
-                _properties = typeof(T).GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.Name != "Id").Select(p => Tuple.Create(p, new PropertyAccessorCompiler(p).GetPropertyValue)).ToArray();
+                _properties = typeof(T).GetProperties()
+                    .Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.GetCustomAttribute<InversePropertyAttribute>() == null && p.Name != "Id")
+                    .Select(p => Tuple.Create(p, new PropertyAccessorCompiler(p).GetPropertyValue)).ToArray();
             }
 
             public override object GetId(object o)

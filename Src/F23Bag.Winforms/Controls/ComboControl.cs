@@ -65,6 +65,11 @@ namespace F23Bag.Winforms.Controls
                 else
                     act();
             }
+            else if (e.PropertyName == _itemsSource.Name)
+            {
+                cbValue.Items.Clear();
+                foreach (var item in (System.Collections.IEnumerable)_itemsSource.GetValue(_data)) cbValue.Items.Add(item);
+            }
         }
 
         private void ComboValue_SelectedValueChanged(object sender, EventArgs e)

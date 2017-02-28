@@ -73,17 +73,63 @@ namespace F23Bag.Data.Mapping
 
         public static void RegroupLoadingInfo(List<LoadingPropertyInfo> infos)
         {
+            var initialDepths = infos.ToDictionary(i => i, i => i.Depth);
+
             foreach (var info in infos.Where(i => i.Depth > 0).OrderByDescending(i => i.Depth).ToList())
             {
-                var depth = info.Depth;
-                var realParent = infos.FirstOrDefault(i => i.Depth == depth - 1 && info.ToString().StartsWith(i.ToString()));
+                var depth = initialDepths[info];
+                var realParent = infos.FirstOrDefault(i => initialDepths[i] == depth - 1 && info.ToString().StartsWith(i.ToString()));
                 if (realParent == null) throw new NotSupportedException("LazyLoad and EagerLoad must be called on each intermediate property : " + info.ToString());
 
+                realParent = realParent.LastSubLoadingPropertyInfo;
+
                 infos.Remove(info);
-                var sub = info.LastSubLoadingPropertyInfo;
-                sub.Parent = realParent;
+
+                var sub = GetChildAtDepth(info, depth);
+                realParent = SearchImmediateParentDescendant(realParent, sub);
                 realParent.SubLoadingPropertyInfo.Add(sub);
+                sub.Parent = realParent;
             }
+        }
+
+        private static LoadingPropertyInfo GetChildAtDepth(LoadingPropertyInfo root, int depth)
+        {
+            if (depth == 0) return root;
+            if (depth == 1) return root.SubLoadingPropertyInfo.First();
+            return GetChildAtDepth(root.SubLoadingPropertyInfo.First(), depth - 1);
+        }
+
+        private static LoadingPropertyInfo SearchImmediateParentDescendant(LoadingPropertyInfo root, LoadingPropertyInfo child)
+        {
+            if (root.Property.DeclaringType != child.Parent.Property.DeclaringType && root.Property.Name != child.Parent.Property.Name)
+            {
+                if (root.SubLoadingPropertyInfo.Count == 0) return SearchImmediateParentAscendant(root, child);
+
+                foreach (var rootChild in root.SubLoadingPropertyInfo)
+                {
+                    var immediateParent = SearchImmediateParentDescendant(rootChild, child);
+                    if (immediateParent != null) return immediateParent;
+                }
+
+                return null;
+            }
+
+            return root;
+        }
+
+        private static LoadingPropertyInfo SearchImmediateParentAscendant(LoadingPropertyInfo root, LoadingPropertyInfo child)
+        {
+            if (root.Property.DeclaringType != child.Parent.Property.DeclaringType && root.Property.Name != child.Parent.Property.Name)
+            {
+                if (root.Parent == null) return null;
+
+                var immediateParent = SearchImmediateParentAscendant(root.Parent, child);
+                if (immediateParent != null) return immediateParent;
+
+                return null;
+            }
+
+            return root;
         }
 
         private static LoadingPropertyInfo FromExpression(MethodCallExpression expression, LazyLoadingType lazyLoadingType, MemberExpression propertyAccess)
@@ -96,8 +142,18 @@ namespace F23Bag.Data.Mapping
             else if (propertyAccess.Expression is MethodCallExpression && ((MethodCallExpression)propertyAccess.Expression).Method.Name == "First" && ((MethodCallExpression)propertyAccess.Expression).Arguments[0] is MemberExpression)
             {
                 var lpi = FromExpression(expression, lazyLoadingType, (MemberExpression)((MethodCallExpression)propertyAccess.Expression).Arguments[0]);
+                var parentLpi = lpi;
+                while (lpi.SubLoadingPropertyInfo.Count > 0) lpi = lpi.SubLoadingPropertyInfo.First();
                 lpi.SubLoadingPropertyInfo.Add(new LoadingPropertyInfo(property, lazyLoadingType) { Parent = lpi });
-                return lpi;
+                return parentLpi;
+            }
+            else if (propertyAccess.Expression is MemberExpression)
+            {
+                var lpi = FromExpression(expression, lazyLoadingType, (MemberExpression)propertyAccess.Expression);
+                var parentLpi = lpi;
+                while (lpi.SubLoadingPropertyInfo.Count > 0) lpi = lpi.SubLoadingPropertyInfo.First();
+                lpi.SubLoadingPropertyInfo.Add(new LoadingPropertyInfo(property, lazyLoadingType) { Parent = lpi });
+                return parentLpi;
             }
             else
                 throw new NotSupportedException("LazyLoad and EagerLoad support only property access and First method call : " + expression.ToString());

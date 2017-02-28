@@ -20,7 +20,7 @@ namespace F23Bag.Data
                 var tableName = ((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.ElementType)).IdentifierName;
 
                 var sql = new StringBuilder("CREATE TABLE ").Append(tableName).Append('(');
-                foreach (var property in ddlStatement.ElementType.GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null))
+                foreach (var property in ddlStatement.ElementType.GetProperties().Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.GetCustomAttribute<InversePropertyAttribute>() == null))
                 {
                     bool isAlter;
                     var columnDefinition = GetColumnDefinition(sqlMapping, property, out isAlter);

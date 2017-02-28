@@ -118,6 +118,9 @@ namespace F23Bag.Tests
 
             Assert.AreEqual(3, GetQuery<Objet1>().Where(o => GetQuery<Objet1>().Where(o2 => o2.Id == o.Id).Any()).Count());
             Assert.AreEqual(0, GetQuery<Objet1>().Where(o => !GetQuery<Objet1>().Where(o2 => o2.Id == o.Id).Any()).Count());
+
+            Assert.AreEqual(3, GetQuery<Objet1>().Where(o => GetQuery<Objet1>().Any(o2 => o2.Id == o.Id)).Count());
+            Assert.AreEqual(0, GetQuery<Objet1>().Where(o => !GetQuery<Objet1>().Any(o2 => o2.Id == o.Id)).Count());
         }
 
         [TestMethod]

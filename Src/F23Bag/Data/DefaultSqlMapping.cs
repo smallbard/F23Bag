@@ -58,6 +58,9 @@ namespace F23Bag.Data
 
         public virtual string GetColumnName(PropertyInfo property)
         {
+            var readOnlyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
+            if (readOnlyAtt != null) property = readOnlyAtt.InverseProperty;
+
             if ((property.PropertyType.IsClass && property.PropertyType != typeof(string)) || property.PropertyType.IsInterface) return "IDFK_" + property.Name.ToUpper();
             if (property.Name.StartsWith("Id") && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper();
 
