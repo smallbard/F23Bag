@@ -76,7 +76,7 @@ namespace F23Bag.Data.Mapping
                         new Constant(Convert.ChangeType(_objectId, idProperty.PropertyType)));
 
                     var mapper = new Mapper(_queryProvider);
-                    mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.SubLoadingPropertyInfo);
+                    mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());
                     mapper.DeclareMap(request, null);
 
                     _loadedObject = _queryProvider.Execute(mapper, request, elementType);
@@ -117,7 +117,7 @@ namespace F23Bag.Data.Mapping
                         new Constant(_parentId));
 
                     var mapper = new Mapper(_queryProvider);
-                    mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.SubLoadingPropertyInfo);
+                    mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());
                     mapper.DeclareMap(request, null);
 
                     if (invocation.Method.Name == "get_Count")
@@ -189,7 +189,7 @@ namespace F23Bag.Data.Mapping
                                     new Constant(Convert.ChangeType(id, idProperty.PropertyType))));
 
                         var mapper = new Mapper(_queryProvider);
-                        mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.SubLoadingPropertyInfo);
+                        mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());
                         mapper.DeclareMap(request, null);
 
                         foreach (var obj in (System.Collections.IEnumerable)_queryProvider.Execute(mapper, request, typeof(IEnumerable<>).MakeGenericType(elementType)))

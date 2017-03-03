@@ -93,7 +93,9 @@ namespace F23Bag.Data
 
         protected virtual string GetTableName(Type type)
         {
-            return string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
+            var tableName = string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
+            if (tableName.EndsWith("_PROXY")) tableName = tableName.Substring(0, tableName.Length - "_PROXY".Length);
+            return tableName;
         }
 
         private DMLNode GetJoinCondition(Request request, PropertyInfo property, AliasDefinition aliasOwner, AliasDefinition aliasElement, bool inOr)

@@ -129,10 +129,10 @@ namespace F23Bag.Data.Mapping
 
                     if (isCollection)
                         lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxyForCollection(lpi, _sqlMapping.GetIdProperty(o.GetType()).GetValue(o)));
-                    else
+                    else if (!DBNull.Value.Equals(reader[_lazyProperties[lpi]]))
                     {
                         var objectId = Convert.ChangeType(reader[_lazyProperties[lpi]], _sqlMapping.GetIdProperty(lpi.Property.PropertyType).PropertyType);
-                        if (!DBNull.Value.Equals(objectId)) lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxy(lpi, objectId));
+                        lpi.SetPropertyValue(o, _lazyProxyGenerator.GetProxy(lpi, objectId));
                     }
                 }
                 else
@@ -190,6 +190,8 @@ namespace F23Bag.Data.Mapping
                         else
                             element = null;
                     }
+                    else
+                        element = lpi.Property.GetValue(o);
 
                     if (firstRead && element != null)
                     {

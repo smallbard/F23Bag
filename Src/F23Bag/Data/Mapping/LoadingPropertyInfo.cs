@@ -9,6 +9,7 @@ namespace F23Bag.Data.Mapping
     internal class LoadingPropertyInfo
     {
         private string _asString;
+        private bool _isRegrouped;
 
         private LoadingPropertyInfo(PropertyInfo property, LazyLoadingType lazyLoadingType)
         {
@@ -52,13 +53,16 @@ namespace F23Bag.Data.Mapping
             return _asString = Parent.ToString() + "." + Property.Name;
         }
 
-        private LoadingPropertyInfo LastSubLoadingPropertyInfo
+        public IEnumerable<LoadingPropertyInfo> GetSubLoadingPropertyInfoforLazy()
         {
-            get
+            var lst = SubLoadingPropertyInfo.Select(lpi =>
             {
-                if (SubLoadingPropertyInfo.Count == 0) return this;
-                return SubLoadingPropertyInfo[0].LastSubLoadingPropertyInfo;
-            }
+                lpi.Parent = null;
+                lpi._isRegrouped = true;
+                return lpi;
+            }).ToList();
+
+            return lst;
         }
 
         public static LoadingPropertyInfo FromExpression(MethodCallExpression expression)
@@ -75,7 +79,7 @@ namespace F23Bag.Data.Mapping
         {
             var initialDepths = infos.ToDictionary(i => i, i => i.Depth);
 
-            foreach (var info in infos.Where(i => i.Depth > 0).OrderByDescending(i => i.Depth).ToList())
+            foreach (var info in infos.Where(i => i.Depth > 0 && !i._isRegrouped).OrderByDescending(i => i.Depth).ToList())
             {
                 var depth = initialDepths[info];
                 var realParent = infos.FirstOrDefault(i => initialDepths[i] == depth - 1 && info.ToString().StartsWith(i.ToString()));
@@ -89,6 +93,15 @@ namespace F23Bag.Data.Mapping
                 realParent = SearchImmediateParentDescendant(realParent, sub);
                 realParent.SubLoadingPropertyInfo.Add(sub);
                 sub.Parent = realParent;
+            }
+        }
+
+        private LoadingPropertyInfo LastSubLoadingPropertyInfo
+        {
+            get
+            {
+                if (SubLoadingPropertyInfo.Count == 0) return this;
+                return SubLoadingPropertyInfo[0].LastSubLoadingPropertyInfo;
             }
         }
 
