@@ -9,6 +9,7 @@ namespace F23Bag.Data
 {
     public class DefaultSqlMapping : ISQLMapping
     {
+        private readonly static Dictionary<Type, IEnumerable<PropertyInfo>> _mappedProperties = new Dictionary<Type, IEnumerable<PropertyInfo>>();
         private readonly IEnumerable<IPropertyMapper> _propertyMappers;
 
         public DefaultSqlMapping(IEnumerable<IPropertyMapper> propertyMappers)
@@ -89,6 +90,20 @@ namespace F23Bag.Data
         public virtual PropertyInfo GetIdProperty(Type type)
         {
             return type.GetProperty("Id");
+        }
+
+        public virtual IEnumerable<PropertyInfo> GetMappedProperties(Type type)
+        {
+            lock (_mappedProperties)
+                if (_mappedProperties.ContainsKey(type))
+                    return _mappedProperties[type];
+                else
+                    return _mappedProperties[type] = GetMappedPropertiesWithoutCache(type).ToList();
+        }
+
+        protected virtual IEnumerable<PropertyInfo> GetMappedPropertiesWithoutCache(Type type)
+        {
+            return type.GetProperties().Where(p => ((!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string)) && p.GetCustomAttribute<TransientAttribute>() == null);
         }
 
         protected virtual string GetTableName(Type type)

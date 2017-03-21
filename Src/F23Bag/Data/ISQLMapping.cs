@@ -16,5 +16,7 @@ namespace F23Bag.Data
         IEnumerable<IPropertyMapper> GetCustomPropertiesMappers();
 
         PropertyInfo GetIdProperty(Type type);
+
+        IEnumerable<PropertyInfo> GetMappedProperties(Type type);
     }
 }
