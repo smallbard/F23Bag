@@ -81,7 +81,7 @@ namespace F23Bag.Data
 
             if (m.Method.DeclaringType == typeof(Queryable)) return VisitQueryableMethodCall(m);
             if (m.Method.DeclaringType == typeof(Enumerable)) return VisitEnumerableMethodCall(m);
-            
+
             if (m.Method.DeclaringType.IsGenericType && m.Method.DeclaringType.GetGenericTypeDefinition() == typeof(List<>) && m.Method.Name == "Contains")
             {
                 Visit(m.Arguments[0]);
@@ -271,13 +271,24 @@ namespace F23Bag.Data
                         {
                             var mbAccess = (MemberExpression)mbAssign.Expression;
                             AddEquivalentProperty((PropertyInfo)mbAccess.Member, (PropertyInfo)mbAssign.Member);
-
                             var alias = _request.FromAlias;
-                            var expression = mbAccess.Expression as MemberExpression;
-                            while (expression != null)
+
+                            if (mbAccess.Expression is MemberExpression)
                             {
-                                alias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)expression.Member), _inOr);
-                                expression = expression.Expression as MemberExpression;
+                                var expressions = new Stack<MemberExpression>();
+                                var expression = (MemberExpression)mbAccess.Expression;
+
+                                while (expression != null)
+                                {
+                                    expressions.Push(expression);
+                                    expression = expression.Expression as MemberExpression;
+                                }
+
+                                while (expressions.Count > 0)
+                                {
+                                    expression = expressions.Pop();
+                                    alias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)expression.Member), _inOr);
+                                }
                             }
 
                             _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member));
@@ -672,7 +683,11 @@ namespace F23Bag.Data
             else if (c.Value == null)
                 SqlAstNode = new Constant(null);
             else if (Type.GetTypeCode(c.Value.GetType()) == TypeCode.Object && !c.Value.GetType().IsArray)
-                throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
+            {
+                var idProperty = _sqlMapping.GetIdProperty(c.Value.GetType());
+                if (idProperty == null) throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
+                SqlAstNode = new Constant(idProperty.GetValue(c.Value));
+            }
             else
                 SqlAstNode = new Constant(c.Value);
 
