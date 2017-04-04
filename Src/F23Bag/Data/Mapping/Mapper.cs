@@ -58,7 +58,7 @@ namespace F23Bag.Data.Mapping
             if (request.Select.Count == 0)
             {
                 if (request.GroupBy.Count == 1)
-                    request.Select.Add(new SelectInfo(request.GroupBy[0], null));
+                    request.Select.Add(new SelectInfo(request.GroupBy[0], null, true));
                 else
                 {
                     var elementType = request.ProjectionType ?? (expression.Type.GetGenericArguments().Length == 0 ? expression.Type : expression.Type.GetGenericArguments()[0]);
@@ -108,11 +108,7 @@ namespace F23Bag.Data.Mapping
         public void Map(object o, IDataRecord reader, Request request, bool firstRead)
         {
             if (firstRead)
-            {
-                var selectIndex = 0;
-                foreach (var property in _sqlMapping.GetMappedProperties(o.GetType()))
-                    MapProperty(o, reader, request, selectIndex++, _mappers);
-            }
+                MapProperties(reader, request, o.GetType(), o, 0);
 
             MapLoading(o, reader, request, firstRead, LoadingPropertyInfos);
         }
@@ -175,41 +171,59 @@ namespace F23Bag.Data.Mapping
                     }
 
                     if (firstRead)
-                    {
-                        var mappers = _sqlMapping.GetCustomPropertiesMappers();
-                        var selectIndex = lpiIndexes.Item1;
-                        foreach (var property in _sqlMapping.GetMappedProperties(elementType))
-                            MapProperty(element, reader, request, selectIndex++, mappers);
-                    }
+                        MapProperties(reader, request, elementType, element, lpiIndexes.Item1);
 
                     MapLoading(element, reader, request, firstRead, lpi.SubLoadingPropertyInfo);
                 }
             }
         }
 
-        private static void MapProperty(object element, IDataRecord reader, Request request, int selectIndex, IEnumerable<IPropertyMapper> mappers)
+        private void MapProperties(IDataRecord reader, Request request, Type elementType, object element, int selectIndex)
         {
-            var selectInfo = request.Select[selectIndex];
-            var mapper = mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
+            do
+            {
+                var selectInfo = request.Select[selectIndex];
+                var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
 
-            if (mapper != null)
-                mapper.Map(element, selectInfo.Property, reader, selectIndex);
-            else if (selectInfo.Property.PropertyType.IsEnum)
-                selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
-            else
-                selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                if (mapper != null)
+                    mapper.Map(element, selectInfo.Property, reader, selectIndex);
+                else if (selectInfo.Property.PropertyType.IsEnum)
+                    selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
+                else
+                    selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                selectIndex++;
+            }
+            while (selectIndex < request.Select.Count && request.Select[selectIndex].Property != null && !request.Select[selectIndex].IsNewElement);
+            
+
+            /*foreach (var property in _sqlMapping.GetMappedProperties(elementType))
+            {
+                var selectInfo = request.Select[selectIndex];
+                var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
+
+                if (mapper != null)
+                    mapper.Map(element, selectInfo.Property, reader, selectIndex);
+                else if (selectInfo.Property.PropertyType.IsEnum)
+                    selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
+                else
+                    selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                selectIndex++;
+            }*/
         }
 
         private void AddSelectForSimpleProperties(Request request, Type elementType, AliasDefinition alias)
         {
             var mappers = _sqlMapping.GetCustomPropertiesMappers();
-            foreach (var property in _sqlMapping.GetMappedProperties(elementType))
+            var isNewElement = true;
+            foreach (var property in _sqlMapping.GetMappedSimpleProperties(elementType))
             {
                 var mapper = mappers.FirstOrDefault(m => m.Accept(property));
                 if (mapper != null)
-                    request.Select.Add(mapper.DeclareMap(request, property, alias));
+                    request.Select.Add(mapper.DeclareMap(request, property, alias, isNewElement));
                 else
-                    request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(request, alias, property, false), property));
+                    request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(request, alias, property, false), property, isNewElement));
+
+                isNewElement = false; ;
             }
         }
 
@@ -220,7 +234,7 @@ namespace F23Bag.Data.Mapping
                 {
                     if (typeof(System.Collections.IEnumerable).IsAssignableFrom(lpi.Property.PropertyType)) continue;
                     _lazyProperties[lpi] = request.Select.Count;
-                    request.Select.Add(new SelectInfo(new ColumnAccess(alias, new Identifier(_sqlMapping.GetColumnName(lpi.Property))), lpi.Property));
+                    request.Select.Add(new SelectInfo(new ColumnAccess(alias, new Identifier(_sqlMapping.GetColumnName(lpi.Property))), lpi.Property, true));
                 }
                 else
                 {

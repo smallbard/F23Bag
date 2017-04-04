@@ -1,4 +1,5 @@
-﻿using F23Bag.Data.DML;
+﻿using F23Bag.Data.ChangeTracking;
+using F23Bag.Data.DML;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace F23Bag.Data
         private readonly ISQLMapping _sqlMapping;
         private readonly List<Action> _operations;
         private readonly HashSet<object> _alreadySaved;
+        private readonly Dictionary<object, Tuple<PropertyInfo, object>[]> _extractedStates;
 
         public UnitOfWork(ISQLProvider sqlProvider, ISQLMapping sqlMapping)
         {
@@ -20,12 +22,24 @@ namespace F23Bag.Data
             _sqlMapping = sqlMapping;
             _operations = new List<Action>();
             _alreadySaved = new HashSet<object>();
+            _extractedStates = new Dictionary<object, Tuple<PropertyInfo, object>[]>();
+        }
+
+        public void TrackChange(object o)
+        {
+            _extractedStates[o] = StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetState(o);
         }
 
         public void Save(object o)
         {
             if (o == null) throw new ArgumentNullException(nameof(o));
-            _operations.Add(() => ((DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(o.GetType()))).Save(o, null, null, _alreadySaved, _sqlProvider, _sqlMapping));
+            _operations.Add(() =>
+            {
+                var initialState = _extractedStates.ContainsKey(o) ? _extractedStates[o] : null;
+                var newState = _extractedStates != null ? StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetState(o) : null;
+
+                ((DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(o.GetType()))).Save(o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, initialState, newState);
+            });
         }
 
         public void Delete(object o)
@@ -34,6 +48,8 @@ namespace F23Bag.Data
 
             _operations.Add(() =>
             {
+                _extractedStates.Remove(o);
+
                 var idProperty = _sqlMapping.GetIdProperty(o.GetType());
 
                 var fromAlias = new AliasDefinition(_sqlMapping.GetSqlEquivalent(o.GetType()));
@@ -123,7 +139,7 @@ namespace F23Bag.Data
         {
             public abstract object GetId(object o);
 
-            public abstract void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping);
+            public abstract void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Tuple<PropertyInfo, object>[] initialState, Tuple<PropertyInfo, object>[] newState);
         }
 
         private class DoSave<T> : DoSave
@@ -149,7 +165,7 @@ namespace F23Bag.Data
                 return _getId(o);
             }
 
-            public override void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping)
+            public override void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Tuple<PropertyInfo, object>[] initialState, Tuple<PropertyInfo, object>[] newState)
             {
                 // no infinite loop
                 if (alreadySaved.Contains(o)) return;
@@ -178,7 +194,7 @@ namespace F23Bag.Data
                         if (value != null)
                         {
                             var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType));
-                            ds.Save(value, null, null, alreadySaved, sqlProvider, sqlMapping);
+                            ds.Save(value, null, null, alreadySaved, sqlProvider, sqlMapping, null, null);
                             value = ds.GetId(value);
                         }
                     }
@@ -233,7 +249,7 @@ namespace F23Bag.Data
                         var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType.GetGenericArguments()[0]));
                         foreach (var obj in (System.Collections.IEnumerable)value)
                         {
-                            doSave.Save(obj, property.Item1, id, alreadySaved, sqlProvider, sqlMapping);
+                            doSave.Save(obj, property.Item1, id, alreadySaved, sqlProvider, sqlMapping, null, null);
                         }
                     }
             }

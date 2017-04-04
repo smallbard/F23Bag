@@ -259,9 +259,9 @@ namespace F23Bag.Tests
                 return property.Name == "Name";
             }
 
-            public SelectInfo DeclareMap(Request request, PropertyInfo property, AliasDefinition alias)
+            public SelectInfo DeclareMap(Request request, PropertyInfo property, AliasDefinition alias, bool isNewElement)
             {
-                return new SelectInfo(new ColumnAccess(alias, new Identifier("NameCustomMapper")), property);
+                return new SelectInfo(new ColumnAccess(alias, new Identifier("NameCustomMapper")), property, false);
             }
 
             public void Map(object o, PropertyInfo property, IDataRecord reader, int readerIndex)

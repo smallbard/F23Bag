@@ -7,10 +7,11 @@ namespace F23Bag.Data.DML
 {
     public class SelectInfo : DMLNode
     {
-        public SelectInfo(DMLNode selectSql, PropertyInfo property)
+        public SelectInfo(DMLNode selectSql, PropertyInfo property, bool isNewElement)
         {
             SelectSql = selectSql;
             Property = property;
+            IsNewElement = isNewElement;
 
             SetPropertyValue = new PropertyAccessorCompiler(property).SetPropertyValue;
         }
@@ -20,6 +21,8 @@ namespace F23Bag.Data.DML
         public PropertyInfo Property { get; private set; }
 
         public Action<object,object> SetPropertyValue { get; private set; }
+
+        public bool IsNewElement { get; private set; }
 
         public override string ToString()
         {
@@ -34,7 +37,7 @@ namespace F23Bag.Data.DML
 
         internal override DMLNode Clone(AliasDefinition source, AliasDefinition replace)
         {
-            return new SelectInfo(SelectSql.Clone(source, replace), Property);
+            return new SelectInfo(SelectSql.Clone(source, replace), Property, IsNewElement);
         }
     }
 }

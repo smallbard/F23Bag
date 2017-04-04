@@ -62,6 +62,7 @@
     <Compile Include="AutomaticUI\Layouts\OneMemberLayout.cs" />
     <Compile Include="AutomaticUI\Layouts\TabsLayout.cs" />
     <Compile Include="AutomaticUI\Layouts\TreeLayout.cs" />
+    <Compile Include="Data\ChangeTracking\StateExtractor.cs" />
     <Compile Include="Data\DatabaseCreation.cs" />
     <Compile Include="Data\DDL\DDLStatement.cs" />
     <Compile Include="Data\DDL\DDLStatementType.cs" />

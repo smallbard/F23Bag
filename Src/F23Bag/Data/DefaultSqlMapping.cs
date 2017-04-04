@@ -92,7 +92,7 @@ namespace F23Bag.Data
             return type.GetProperty("Id");
         }
 
-        public virtual IEnumerable<PropertyInfo> GetMappedProperties(Type type)
+        public virtual IEnumerable<PropertyInfo> GetMappedSimpleProperties(Type type)
         {
             lock (_mappedProperties)
                 if (_mappedProperties.ContainsKey(type))

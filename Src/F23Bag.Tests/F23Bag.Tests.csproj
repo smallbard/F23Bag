@@ -78,6 +78,7 @@
     <Compile Include="AutomaticUITestElements\SelectorForObjectForSelector.cs" />
     <Compile Include="AutomaticUITestElements\SelectorForObjectForSelectorLayoutProvider.cs" />
     <Compile Include="AutomaticUITests.cs" />
+    <Compile Include="ChangeTrackingTests.cs" />
     <Compile Include="DatabaseProviderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QueryTests.cs" />

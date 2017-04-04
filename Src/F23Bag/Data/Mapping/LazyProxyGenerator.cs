@@ -123,7 +123,7 @@ namespace F23Bag.Data.Mapping
                     if (invocation.Method.Name == "get_Count")
                     {
                         request.Select.Clear();
-                        request.Select.Add(new SelectInfo(new UnaryExpression(UnaryExpressionTypeEnum.Count, null), null));
+                        request.Select.Add(new SelectInfo(new UnaryExpression(UnaryExpressionTypeEnum.Count, null), null, true));
                         invocation.ReturnValue = Convert.ChangeType(_queryProvider.Execute(mapper, request, invocation.Method.ReturnType), invocation.Method.ReturnType);
                         return;
                     }

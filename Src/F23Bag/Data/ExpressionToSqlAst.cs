@@ -178,7 +178,7 @@ namespace F23Bag.Data
                     addAggregation = nd =>
                     {
                         subRequest.Select.Clear();
-                        subRequest.Select.Add(new SelectInfo(nd, null));
+                        subRequest.Select.Add(new SelectInfo(nd, null, true));
                         SqlAstNode = subRequest;
                     };
                 }
@@ -246,7 +246,7 @@ namespace F23Bag.Data
                     var isCollection = property.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType);
                     if (m.Method.Name == "Select" && isCollection)
                         throw new SQLException("Must use SelectMany for " + select.ToString());
-                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, _request.GetAliasFor(select.Parameters[0]), GetRealProperty(property), _inOr), null));
+                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, _request.GetAliasFor(select.Parameters[0]), GetRealProperty(property), _inOr), null, _request.Select.Count == 0));
 
                     if (isCollection)
                         _request.ProjectionType = property.PropertyType.GetGenericArguments()[0];
@@ -262,6 +262,7 @@ namespace F23Bag.Data
                 else if (select.Body is MemberInitExpression)
                 {
                     var mbInit = (MemberInitExpression)select.Body;
+                    var newElement = true;
                     foreach (var binding in mbInit.Bindings)
                     {
                         if (!(binding is MemberAssignment)) throw new NotSupportedException("Only assignment are supported : " + binding.ToString());
@@ -291,20 +292,21 @@ namespace F23Bag.Data
                                 }
                             }
 
-                            _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member));
+                            _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member, newElement));
                         }
                         else if (mbAssign.Expression is ConstantExpression)
-                            _request.Select.Add(new SelectInfo(new DML.Constant(((ConstantExpression)mbAssign.Expression).Value), (PropertyInfo)mbAssign.Member));
+                            _request.Select.Add(new SelectInfo(new DML.Constant(((ConstantExpression)mbAssign.Expression).Value), (PropertyInfo)mbAssign.Member, newElement));
                         else if (mbAssign.Expression is MethodCallExpression && ((MethodCallExpression)mbAssign.Expression).Method.DeclaringType.Equals(typeof(Queryable)))
                         {
                             Visit(mbAssign.Expression);
                             var subRequest = _request;
                             _request = _request.ParentRequest;
-                            _request.Select.Add(new SelectInfo(subRequest, (PropertyInfo)mbAssign.Member));
+                            _request.Select.Add(new SelectInfo(subRequest, (PropertyInfo)mbAssign.Member, newElement));
                         }
                         else
-                            throw new NotImplementedException();
+                            throw new NotSupportedException("No supported binding : " + binding.ToString());
 
+                        newElement = false;
                     }
                     _request.ProjectionType = mbInit.NewExpression.Type;
                 }
@@ -350,19 +352,19 @@ namespace F23Bag.Data
                 if (_request.GroupBy.Count > 0)
                 {
                     var countRequest = new Request();
-                    countRequest.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Count, null), null));
+                    countRequest.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Count, null), null, true));
                     countRequest.FromAlias = new AliasDefinition(_request);
 
                     if (_request.Select.Count == 0)
                         foreach (var grp in _request.GroupBy)
-                            _request.Select.Add(new SelectInfo(grp, null));
+                            _request.Select.Add(new SelectInfo(grp, null, _request.Select.Count == 0));
 
                     _request = countRequest;
                 }
                 else
                 {
                     _request.Select.Clear();
-                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Count, null), null));
+                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Count, null), null, true));
                 }
             }
             else if ((m.Method.Name.StartsWith("OrderBy") || m.Method.Name.StartsWith("ThenBy")) && m.Method.GetParameters().Length == 2)
@@ -378,7 +380,7 @@ namespace F23Bag.Data
             else if (m.Method.Name == "Any")
             {
                 var anyRequest = _request;
-                if (anyRequest.Select.Count == 0) anyRequest.Select.Add(new DML.SelectInfo(new ColumnAccess(anyRequest.FromAlias, new DML.Identifier("*")), null));
+                if (anyRequest.Select.Count == 0) anyRequest.Select.Add(new DML.SelectInfo(new ColumnAccess(anyRequest.FromAlias, new DML.Identifier("*")), null, true));
 
                 if (m.Method.GetParameters().Length == 2) VisitQueryableWhereOrFirst(m);
 
@@ -399,13 +401,13 @@ namespace F23Bag.Data
 
                 _request.Select.Clear();
                 if (m.Method.Name == "Max")
-                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Max, SqlAstNode), null));
+                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Max, SqlAstNode), null, true));
                 else if (m.Method.Name == "Min")
-                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Min, SqlAstNode), null));
+                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Min, SqlAstNode), null, true));
                 else if (m.Method.Name == "Sum")
-                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Sum, SqlAstNode), null));
+                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Sum, SqlAstNode), null, true));
                 else if (m.Method.Name == "Average")
-                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Average, SqlAstNode), null));
+                    _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Average, SqlAstNode), null, true));
                 else
                     throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
             }
@@ -438,7 +440,7 @@ namespace F23Bag.Data
             if (newExpArgument is ConstantExpression)
             {
                 Visit(newExpArgument);
-                _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
+                _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                 return;
             }
 
@@ -448,7 +450,7 @@ namespace F23Bag.Data
                 if (!(arg.Member is PropertyInfo)) throw new NotSupportedException("Only property access are supported : " + arg.ToString());
 
                 if (arg.Member.Name == "Key" && arg.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(arg.Member.DeclaringType.GetGenericTypeDefinition()))
-                    foreach (var grp in _request.GroupBy) _request.Select.Add(new SelectInfo(grp, (PropertyInfo)newExp.Members[i]));
+                    foreach (var grp in _request.GroupBy) _request.Select.Add(new SelectInfo(grp, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                 else
                 {
                     AddEquivalentProperty((PropertyInfo)arg.Member, (PropertyInfo)newExp.Members[i]);
@@ -461,7 +463,7 @@ namespace F23Bag.Data
                         expression = expression.Expression as MemberExpression;
                     }
 
-                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)arg.Member), _inOr), (PropertyInfo)newExp.Members[i]));
+                    _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)arg.Member), _inOr), (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                 }
             }
             else if (newExpArgument is MethodCallExpression)
@@ -470,7 +472,7 @@ namespace F23Bag.Data
                 if (arg.Method.DeclaringType == typeof(Queryable))
                 {
                     Visit(arg);
-                    _request.ParentRequest.Select.Add(new SelectInfo(_request, (PropertyInfo)newExp.Members[i]));
+                    _request.ParentRequest.Select.Add(new SelectInfo(_request, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                     _request = _request.ParentRequest;
                 }
                 else
@@ -478,7 +480,7 @@ namespace F23Bag.Data
                     if (!(arg.Method.DeclaringType == typeof(Enumerable)))
                         throw new NotSupportedException("Only method from Enumerable and queryable are supported : " + arg.ToString());
                     Visit(arg);
-                    _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i]));
+                    _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                 }
             }
             else if (newExpArgument is NewExpression)
@@ -560,7 +562,7 @@ namespace F23Bag.Data
 
         private void AddEquivalentProperty(PropertyInfo original, PropertyInfo equivalentProperty)
         {
-            _equivalentProperties[equivalentProperty] = original;
+            if (!original.Equals(equivalentProperty)) _equivalentProperties[equivalentProperty] = original;
         }
 
         private PropertyInfo GetRealProperty(PropertyInfo property)
