@@ -2,6 +2,7 @@
 using F23Bag.Data.DML;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -12,33 +13,41 @@ namespace F23Bag.Data
     {
         private readonly ISQLProvider _sqlProvider;
         private readonly ISQLMapping _sqlMapping;
-        private readonly List<Action> _operations;
+        private readonly List<Action<IDbConnection>> _operations;
         private readonly HashSet<object> _alreadySaved;
-        private readonly Dictionary<object, Tuple<PropertyInfo, object>[]> _extractedStates;
+        private readonly Dictionary<object, State> _extractedStates;
 
         public UnitOfWork(ISQLProvider sqlProvider, ISQLMapping sqlMapping)
         {
             _sqlProvider = sqlProvider;
             _sqlMapping = sqlMapping;
-            _operations = new List<Action>();
+            _operations = new List<Action<IDbConnection>>();
             _alreadySaved = new HashSet<object>();
-            _extractedStates = new Dictionary<object, Tuple<PropertyInfo, object>[]>();
+            _extractedStates = new Dictionary<object, State>();
         }
+
+        public event EventHandler<UnitOfWorkEventArgs> BeforeDelete;
+
+        public event EventHandler<UnitOfWorkEventArgs> BeforeUpdate;
+
+        public event EventHandler<UnitOfWorkEventArgs> BeforeInsert;
 
         public void TrackChange(object o)
         {
-            _extractedStates[o] = StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetState(o);
+            var states = StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetAllComponentStates(o);
+            foreach (var os in states.Keys)
+                _extractedStates[os] = states[os];
         }
 
-        public void Save(object o)
+        public void Save<T>(T o)
         {
             if (o == null) throw new ArgumentNullException(nameof(o));
-            _operations.Add(() =>
+            _operations.Add(connection =>
             {
-                var initialState = _extractedStates.ContainsKey(o) ? _extractedStates[o] : null;
-                var newState = _extractedStates != null ? StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetState(o) : null;
-
-                ((DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(o.GetType()))).Save(o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, initialState, newState);
+                var ds = new DoSave<T>();
+                ds.BeforeUpdate += (s, e) => BeforeUpdate?.Invoke(this, e);
+                ds.BeforeInsert += (s, e) => BeforeInsert?.Invoke(this, e);
+                ds.Save(connection, o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, _extractedStates);
             });
         }
 
@@ -46,66 +55,64 @@ namespace F23Bag.Data
         {
             if (o == null) throw new ArgumentNullException(nameof(o));
 
-            _operations.Add(() =>
+            _operations.Add(connection =>
             {
                 _extractedStates.Remove(o);
 
                 var idProperty = _sqlMapping.GetIdProperty(o.GetType());
+                var id = idProperty.GetValue(o);
+                var table = _sqlMapping.GetSqlEquivalent(o.GetType());
 
-                var fromAlias = new AliasDefinition(_sqlMapping.GetSqlEquivalent(o.GetType()));
+                var fromAlias = new AliasDefinition(table);
                 var request = new Request()
                 {
                     FromAlias = fromAlias,
                     RequestType = RequestType.Delete
                 };
-                request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(idProperty.GetValue(o)));
+                request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
+
+                BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o));
 
                 var parameters = new List<Tuple<string, object>>();
                 var sql = _sqlProvider.GetSQLTranslator().Translate(request, parameters);
-                using (var connection = _sqlProvider.GetConnection())
-                {
-                    if (connection.State != System.Data.ConnectionState.Open) connection.Open();
 
-                    using (var cmd = connection.CreateCommand())
+                using (var cmd = connection.CreateCommand())
+                {
+                    cmd.CommandText = sql;
+                    foreach (var parameter in parameters)
                     {
-                        cmd.CommandText = sql;
-                        foreach (var parameter in parameters)
-                        {
-                            var dbParameter = cmd.CreateParameter();
-                            dbParameter.ParameterName = parameter.Item1;
-                            dbParameter.Value = parameter.Item2;
-                            cmd.Parameters.Add(dbParameter);
-                        }
-                        cmd.ExecuteNonQuery();
+                        var dbParameter = cmd.CreateParameter();
+                        dbParameter.ParameterName = parameter.Item1;
+                        dbParameter.Value = parameter.Item2;
+                        cmd.Parameters.Add(dbParameter);
                     }
+                    cmd.ExecuteNonQuery();
                 }
+
             });
         }
 
         public void Delete<TSource>(IQueryable<TSource> source)
         {
-            _operations.Add(() => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>>(Delete).Method, source.Expression)));
+            _operations.Add(connection => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>>(Delete).Method, source.Expression)));
         }
 
         public void Update<TSource>(IQueryable<TSource> source, Expression<Func<TSource, TSource>> updateExpression)
         {
-            _operations.Add(() => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>, Expression<Func<TSource, TSource>>>(Update).Method, source.Expression, Expression.Quote(updateExpression))));
+            _operations.Add(connection => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>, Expression<Func<TSource, TSource>>>(Update).Method, source.Expression, Expression.Quote(updateExpression))));
         }
 
         public void Insert<TSource, TInsert>(IQueryable<TSource> source, Expression<Func<TSource, TInsert>> insertExpression)
         {
-            _operations.Add(() => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>, Expression<Func<TSource, TInsert>>>(Insert).Method, source.Expression, Expression.Quote(insertExpression))));
+            _operations.Add(connection => source.Provider.Execute<int>(Expression.Call(Expression.Constant(this), new Action<IQueryable<TSource>, Expression<Func<TSource, TInsert>>>(Insert).Method, source.Expression, Expression.Quote(insertExpression))));
         }
 
         public void Execute(string sql, IEnumerable<Tuple<string, object>> parameters)
         {
-            _operations.Add(() =>
+            _operations.Add(connection =>
             {
-                using (var connection = _sqlProvider.GetConnection())
                 using (var cmd = connection.CreateCommand())
                 {
-                    if (connection.State != System.Data.ConnectionState.Open) connection.Open();
-
                     cmd.CommandText = sql;
 
                     if (parameters != null)
@@ -124,7 +131,17 @@ namespace F23Bag.Data
 
         public void Commit()
         {
-            _operations.ForEach(op => op());
+            using (var connection = _sqlProvider.GetConnection())
+            {
+                if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+
+                using (var transaction = connection.BeginTransaction())
+                {
+                    _operations.ForEach(op => op(connection));
+                    transaction.Commit();
+                }
+            }
+
             _operations.Clear();
             _alreadySaved.Clear();
         }
@@ -137,72 +154,84 @@ namespace F23Bag.Data
 
         private abstract class DoSave
         {
-            public abstract object GetId(object o);
+            public event EventHandler<UnitOfWorkEventArgs> BeforeUpdate;
 
-            public abstract void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Tuple<PropertyInfo, object>[] initialState, Tuple<PropertyInfo, object>[] newState);
+            public event EventHandler<UnitOfWorkEventArgs> BeforeInsert;
+
+            public abstract void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates);
+
+            protected void OnBeforeUpdate(UnitOfWorkEventArgs args)
+            {
+                BeforeUpdate?.Invoke(this, args);
+            }
+
+            protected void OnBeforeInsert(UnitOfWorkEventArgs args)
+            {
+                BeforeInsert?.Invoke(this, args);
+            }
         }
 
         private class DoSave<T> : DoSave
         {
-            private static readonly PropertyInfo _idProperty;
-            private static readonly Func<object, object> _getId;
-            private static readonly Action<object, object> _setId;
-            private static readonly IEnumerable<Tuple<PropertyInfo, Func<object, object>>> _properties;
-
-            static DoSave()
-            {
-                _idProperty = typeof(T).GetProperty("Id");
-                var pac = new PropertyAccessorCompiler(_idProperty);
-                _getId = pac.GetPropertyValue;
-                _setId = pac.SetPropertyValue;
-                _properties = typeof(T).GetProperties()
-                    .Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.GetCustomAttribute<InversePropertyAttribute>() == null && p.Name != "Id")
-                    .Select(p => Tuple.Create(p, new PropertyAccessorCompiler(p).GetPropertyValue)).ToArray();
-            }
-
-            public override object GetId(object o)
-            {
-                return _getId(o);
-            }
-
-            public override void Save(object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Tuple<PropertyInfo, object>[] initialState, Tuple<PropertyInfo, object>[] newState)
+            public override void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates)
             {
                 // no infinite loop
                 if (alreadySaved.Contains(o)) return;
                 alreadySaved.Add(o);
 
-                var id = _getId(o);
+                var idProperty = sqlMapping.GetIdProperty(o.GetType());
+                var pacId = new PropertyAccessorCompiler(idProperty);
+                var id = pacId.GetPropertyValue(o);
 
-                var doInsert = (_idProperty.PropertyType.IsValueType && Activator.CreateInstance(_idProperty.PropertyType).Equals(id)) || (!_idProperty.PropertyType.IsValueType && id == null);
+                var doInsert = (idProperty.PropertyType.IsValueType && Activator.CreateInstance(idProperty.PropertyType).Equals(id)) || (!idProperty.PropertyType.IsValueType && id == null);
+                var initialState = !doInsert && extractedStates.ContainsKey(o) ? extractedStates[o] : null;
+                var newState = initialState != null ? StateExtractor.GetStateExtractor(sqlMapping, typeof(T)).GetAllComponentStates(o)[o] : null;
 
-                var fromAlias = new AliasDefinition(sqlMapping.GetSqlEquivalent(o.GetType()));
+                var table = sqlMapping.GetSqlEquivalent(o.GetType());
+                var fromAlias = new AliasDefinition(table);
                 var request = new Request()
                 {
                     FromAlias = fromAlias,
                     RequestType = doInsert ? RequestType.InsertValues : RequestType.Update,
-                    IdColumnName = sqlMapping.GetColumnName(_idProperty)
+                    IdColumnName = sqlMapping.GetColumnName(idProperty)
                 };
 
-                foreach (var property in _properties)
+                PropertyAccessorCompiler[] properties = null;
+                if (initialState != null)
                 {
-                    var value = property.Item2(o);
+                    properties = initialState.GetChangedProperties(newState)
+                        .Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.GetCustomAttribute<InversePropertyAttribute>() == null && p.Name != idProperty.Name)
+                        .Select(p => new PropertyAccessorCompiler(p)).ToArray();
 
-                    if (property.Item1.PropertyType.IsClass && property.Item1.PropertyType != typeof(string))
+                    extractedStates[o] = newState;
+                }
+                else
+                    properties = typeof(T).GetProperties()
+                        .Where(p => p.GetCustomAttribute<TransientAttribute>() == null && p.GetCustomAttribute<InversePropertyAttribute>() == null && p.Name != idProperty.Name)
+                        .Select(p => new PropertyAccessorCompiler(p)).ToArray();
+
+                if (properties.Length == 0) return;
+
+                foreach (var pac in properties)
+                {
+                    var value = pac.GetPropertyValue(o);
+
+                    if (pac.Property.PropertyType.IsClass && pac.Property.PropertyType != typeof(string))
                     {
-                        if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Item1.PropertyType)) continue;
+                        if (typeof(System.Collections.IEnumerable).IsAssignableFrom(pac.Property.PropertyType)) continue;
 
                         if (value != null)
                         {
-                            var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType));
-                            ds.Save(value, null, null, alreadySaved, sqlProvider, sqlMapping, null, null);
-                            value = ds.GetId(value);
+                            var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(pac.Property.PropertyType));
+                            ds.Save(connection, value, null, null, alreadySaved, sqlProvider, sqlMapping, extractedStates);
+                            value = new PropertyAccessorCompiler(sqlMapping.GetIdProperty(value.GetType())).GetPropertyValue(value);
                         }
                     }
 
-                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value), new ColumnAccess(fromAlias, new Identifier(sqlMapping.GetColumnName(property.Item1)))));
+                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value), new ColumnAccess(fromAlias, new Identifier(sqlMapping.GetColumnName(pac.Property)))));
                 }
 
-                if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, sqlMapping.GetSqlEquivalent(request, fromAlias, _idProperty, false), new Constant(id));
+                if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
 
                 if (parentProperty != null && parentId != null)
                 {
@@ -217,42 +246,63 @@ namespace F23Bag.Data
                     request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId), new ColumnAccess(fromAlias, new Identifier(columnName))));
                 }
 
+                if (doInsert)
+                    OnBeforeInsert(new UnitOfWorkEventArgs(connection, null, table, o));
+                else
+                    OnBeforeUpdate(new UnitOfWorkEventArgs(connection, id, table, o));
+
                 var parameters = new List<Tuple<string, object>>();
                 var sql = sqlProvider.GetSQLTranslator().Translate(request, parameters);
-                using (var connection = sqlProvider.GetConnection())
+
+                using (var cmd = connection.CreateCommand())
                 {
-                    if (connection.State != System.Data.ConnectionState.Open) connection.Open();
-
-                    using (var cmd = connection.CreateCommand())
+                    cmd.CommandText = sql;
+                    foreach (var parameter in parameters)
                     {
-                        cmd.CommandText = sql;
-                        foreach (var parameter in parameters)
-                        {
-                            var dbParameter = cmd.CreateParameter();
-                            dbParameter.ParameterName = parameter.Item1;
-                            dbParameter.Value = parameter.Item2;
-                            cmd.Parameters.Add(dbParameter);
-                        }
-
-                        if (doInsert)
-                            _setId(o, Convert.ChangeType(id = cmd.ExecuteScalar(), _idProperty.PropertyType));
-                        else
-                            cmd.ExecuteNonQuery();
+                        var dbParameter = cmd.CreateParameter();
+                        dbParameter.ParameterName = parameter.Item1;
+                        dbParameter.Value = parameter.Item2;
+                        cmd.Parameters.Add(dbParameter);
                     }
+
+                    if (doInsert)
+                        pacId.SetPropertyValue(o, Convert.ChangeType(id = cmd.ExecuteScalar(), idProperty.PropertyType));
+                    else
+                        cmd.ExecuteNonQuery();
                 }
 
-                foreach (var property in _properties)
-                    if (property.Item1.PropertyType.IsClass && property.Item1.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Item1.PropertyType))
+                foreach (var property in properties)
+                    if (property.Property.PropertyType.IsClass && property.Property.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Property.PropertyType))
                     {
-                        var value = property.Item2(o);
+                        var value = property.GetPropertyValue(o);
                         if (value == null) continue;
-                        var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Item1.PropertyType.GetGenericArguments()[0]));
+
+                        var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Property.PropertyType.GetGenericArguments()[0]));
                         foreach (var obj in (System.Collections.IEnumerable)value)
                         {
-                            doSave.Save(obj, property.Item1, id, alreadySaved, sqlProvider, sqlMapping, null, null);
+                            doSave.Save(connection, obj, property.Property, id, alreadySaved, sqlProvider, sqlMapping, extractedStates);
                         }
                     }
             }
         }
+    }
+
+    public class UnitOfWorkEventArgs : EventArgs
+    {
+        public UnitOfWorkEventArgs(IDbConnection connection, object id, DMLNode table, object entity)
+        {
+            Connection = connection;
+            Id = id;
+            Table = table;
+            Entity = entity;
+        }
+
+        public IDbConnection Connection { get; private set; }
+
+        public object Id { get; private set; }
+
+        public DMLNode Table { get; private set; }
+
+        public object Entity { get; private set; }
     }
 }

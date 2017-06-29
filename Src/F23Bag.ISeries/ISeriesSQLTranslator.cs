@@ -211,7 +211,19 @@ namespace F23Bag.ISeries
             else
             {
                 var parameterName = new StringBuilder("@p").Append(_parameters.Count);
-                _sqlElements.Push(parameterName);
+                var sql = new StringBuilder(parameterName.ToString());
+
+                if (constant.Parent is Request)
+                {
+                    if (constant.Value is DateTime)
+                        sql.Insert(0, "CAST(").Append(" AS TIMESTAMP)");
+                    else if (constant.Value is int)
+                        sql.Insert(0, "CAST(").Append(" AS INTEGER)");
+                    else
+                        throw new NotSupportedException("Only timestamp and integers constants are supported in SELECT.");
+                }
+
+                _sqlElements.Push(sql);
                 _parameters.Add(Tuple.Create(parameterName.ToString(), constant.Value));
             }
         }

@@ -4,12 +4,14 @@ using System.Linq;
 using System.Reflection;
 using F23Bag.Data.DML;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace F23Bag.Data
 {
     public class DefaultSqlMapping : ISQLMapping
     {
         private readonly static Dictionary<Type, IEnumerable<PropertyInfo>> _mappedProperties = new Dictionary<Type, IEnumerable<PropertyInfo>>();
+        private readonly static Regex _removedGenericArgumentCount = new Regex("`[0-9]", RegexOptions.Compiled);
         private readonly IEnumerable<IPropertyMapper> _propertyMappers;
 
         public DefaultSqlMapping(IEnumerable<IPropertyMapper> propertyMappers)
@@ -108,7 +110,9 @@ namespace F23Bag.Data
 
         protected virtual string GetTableName(Type type)
         {
-            var tableName = string.Join("", type.Name.Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
+            var tableName = string.Join("",
+                _removedGenericArgumentCount.Replace(string.Join("", new string[] { type.Name }.Union(type.GetGenericArguments().Select(t => t.Name))), "")
+                    .Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
             if (tableName.EndsWith("_PROXY")) tableName = tableName.Substring(0, tableName.Length - "_PROXY".Length);
             return tableName;
         }

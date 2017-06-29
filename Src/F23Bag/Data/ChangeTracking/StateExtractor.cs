@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace F23Bag.Data.ChangeTracking
 {
@@ -14,15 +12,15 @@ namespace F23Bag.Data.ChangeTracking
     internal class StateExtractor
     {
         private static readonly Dictionary<ISQLMapping, Dictionary<Type, StateExtractor>> _stateExtractors = new Dictionary<ISQLMapping, Dictionary<Type, StateExtractor>>();
-        private static readonly MethodInfo _tupleCreate = typeof(Tuple).GetMethods().First(m => m.Name == nameof(Tuple.Create) && m.GetParameters().Length == 2).MakeGenericMethod(typeof(PropertyInfo), typeof(object));
-        private Func<object, Tuple<PropertyInfo, object>[]> _extractState;
+        private Func<object, Dictionary<object, State>, StateElement[]> _extractState;
 
         private StateExtractor() { }
 
-        public Tuple<PropertyInfo, object>[] GetState(object o)
+        public Dictionary<object, State> GetAllComponentStates(object o)
         {
-            if (o == null) return null;
-            return _extractState(o);
+            var states = new Dictionary<object, State>();
+            GetState(o, states);
+            return states;
         }
 
         public static StateExtractor GetStateExtractor(ISQLMapping sqlMapping, Type entityType)
@@ -42,15 +40,24 @@ namespace F23Bag.Data.ChangeTracking
             }
         }
 
+        private State GetState(object o, Dictionary<object, State> states)
+        {
+            if (o == null) return null;
+            if (states.ContainsKey(o)) return states[o];
+            return states[o] = new State(o, _extractState(o, states));
+        }
+
         private void Initialize(Type entityType, ISQLMapping sqlMapping)
         {
             var entityParameter = Expression.Parameter(typeof(object));
+            var statesParameter = Expression.Parameter(typeof(Dictionary<object, State>));
             var arrayInitializers = new List<Expression>();
+            var stateElementCtor = typeof(StateElement).GetConstructors()[0];
 
             foreach (var property in sqlMapping.GetMappedSimpleProperties(entityType).Union(entityType.GetProperties().Where(p => p.PropertyType != typeof(string) && p.PropertyType.IsClass && p.GetCustomAttribute<TransientAttribute>() == null)))
             {
                 if (!property.PropertyType.IsClass || property.PropertyType == typeof(string))
-                    arrayInitializers.Add(Expression.Call(_tupleCreate, Expression.Constant(property), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object))));
+                    arrayInitializers.Add(Expression.New(stateElementCtor, Expression.Constant(property), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object))));
                 else if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 {
                     var elementType = property.PropertyType.GetGenericArguments()[0];
@@ -61,9 +68,11 @@ namespace F23Bag.Data.ChangeTracking
                     var ofType = typeof(Enumerable).GetMethod(nameof(Enumerable.OfType)).MakeGenericMethod(typeof(object));
                     var toArray = typeof(Enumerable).GetMethod(nameof(Enumerable.ToArray)).MakeGenericMethod(typeof(object));
 
+                    var oParemeter = Expression.Parameter(typeof(object));
+
                     arrayInitializers.Add(
-                        Expression.Call(
-                            _tupleCreate,
+                        Expression.New(
+                            stateElementCtor,
                             Expression.Constant(property),
                             Expression.Call(
                                 toArray,
@@ -73,16 +82,84 @@ namespace F23Bag.Data.ChangeTracking
                                         Expression.Coalesce(
                                             Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(IEnumerable<>).MakeGenericType(elementType)),
                                             Expression.Convert(Expression.Constant(Array.CreateInstance(elementType, 0)), typeof(IEnumerable<>).MakeGenericType(elementType)))),
-                                    Expression.Constant(typeof(StateExtractor).GetMethod(nameof(GetState)).CreateDelegate(typeof(Func<object, Tuple<PropertyInfo, object>[]>), stateExtractor))))));
+                                    Expression.Lambda<Func<object, State>>(
+                                            Expression.Call(Expression.Constant(stateExtractor), typeof(StateExtractor).GetMethod(nameof(GetState), BindingFlags.NonPublic | BindingFlags.Instance), oParemeter, statesParameter), oParemeter)))));
                 }
                 else
                 {
                     var stateExtractor = GetStateExtractor(sqlMapping, property.PropertyType);
-                    arrayInitializers.Add(Expression.Call(_tupleCreate, Expression.Constant(property), Expression.Call(Expression.Constant(stateExtractor), typeof(StateExtractor).GetMethod(nameof(GetState)), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object)))));
+                    arrayInitializers.Add(Expression.New(
+                        stateElementCtor, 
+                        Expression.Constant(property), 
+                        Expression.Call(Expression.Constant(stateExtractor), typeof(StateExtractor).GetMethod(nameof(GetState), BindingFlags.NonPublic | BindingFlags.Instance), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object)), statesParameter)));
                 }
             }
 
-            _extractState = Expression.Lambda<Func<object, Tuple<PropertyInfo, object>[]>>(Expression.NewArrayInit(typeof(Tuple<PropertyInfo, object>), arrayInitializers.ToArray()), entityParameter).Compile();
+            _extractState = Expression.Lambda<Func<object, Dictionary<object, State>, StateElement[]>>(Expression.NewArrayInit(typeof(StateElement), arrayInitializers.ToArray()), entityParameter, statesParameter).Compile();
+        }
+    }
+
+    internal class StateElement
+    {
+        public StateElement(PropertyInfo property, object value)
+        {
+            Property = property;
+            Value = value;
+        }
+
+        public PropertyInfo Property { get; private set; }
+
+        public object Value { get; private set; }
+    }
+
+    internal class State
+    {
+        public State(object stateOwner, StateElement[] stateElements)
+        {
+            StateOwner = stateOwner;
+            StateElements = stateElements;
+        }
+
+        public object StateOwner { get; private set; }
+
+        public StateElement[] StateElements { get; private set; }
+
+        public IEnumerable<PropertyInfo> GetChangedProperties(State newState)
+        {
+            for (var i = 0; i < StateElements.Length; i++)
+            {
+                var value = StateElements[i].Value;
+
+                if (value is State)
+                {
+                    if (((State)value).GetChangedProperties((State)newState.StateElements[i].Value).Any())
+                        yield return StateElements[i].Property;
+                }
+                else if (value is object[])
+                {
+                    var collectionInitialState = (object[])value;
+                    var collectionNewState = (object[])newState.StateElements[i].Value ?? new object[] { };
+
+                    if (collectionInitialState.Length != collectionNewState.Length)
+                        yield return StateElements[i].Property;
+                    else
+                    {
+                        for (var collectionIndex = 0; collectionIndex < collectionInitialState.Length; collectionIndex++)
+                        {
+                            var collectionItemInitialState = (State)collectionInitialState[collectionIndex];
+                            var collectionItemNewState = (State)collectionNewState[collectionIndex];
+
+                            if (collectionItemInitialState.GetChangedProperties(collectionItemNewState).Any())
+                            {
+                                yield return StateElements[i].Property;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (!object.Equals(value, newState.StateElements[i].Value))
+                    yield return StateElements[i].Property;
+            }
         }
     }
 }

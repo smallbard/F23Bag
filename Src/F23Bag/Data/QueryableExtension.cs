@@ -35,11 +35,12 @@ namespace F23Bag.Data
             return new Query<TSource>((QueryProvider)source.Provider, Expression.Call(null, new Func<IQueryable<TSource>, Expression<Func<TSource, TValue>>, IQueryable<TSource>>(DontLoad).Method, source.Expression, Expression.Quote(propertyExpression)));
         }
 
-        public static IQueryable<TSource> Recursive<TSource>(this IQueryable<TSource> source, Expression<Func<TSource, TSource, bool>> recursiveExpression)
+        public static IQueryable<TSource> CacheEntry<TSource>(this IQueryable<TSource> source, string cacheEntryName)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
-            if (recursiveExpression == null) throw new ArgumentNullException(nameof(recursiveExpression));
-            return new Query<TSource>((QueryProvider)source.Provider, Expression.Call(null, new Func<IQueryable<TSource>, Expression<Func<TSource, TSource, bool>>, IQueryable<TSource>>(Recursive).Method, source.Expression, Expression.Quote(recursiveExpression)));
+            if (string.IsNullOrEmpty(cacheEntryName)) throw new ArgumentNullException(nameof(cacheEntryName));
+
+            return new Query<TSource>((QueryProvider)source.Provider, Expression.Call(null, new Func<IQueryable<TSource>, string, IQueryable<TSource>>(CacheEntry).Method, source.Expression, Expression.Constant(cacheEntryName)));
         }
     }
 }

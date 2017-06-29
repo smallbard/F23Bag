@@ -98,6 +98,38 @@ namespace F23Bag.Tests
         }
 
         [TestMethod]
+        public void UnitOfWork_Differential_Update()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            var newObj = new Objet1() { Name = "createdByUw", Objet2 = new Objet2() { Value2 = 77 } };
+            newObj.Objet3List = new List<Objet3>() { new Objet3() { Value3 = 88 }, new Objet3() { Value3 = 99 } };
+
+            var uw = new UnitOfWork(Provider, new DefaultSqlMapping(null));
+            uw.Save(newObj);
+            uw.Commit();
+
+            var readObj = GetQuery<Objet1>().EagerLoad(o => o.Objet2).EagerLoad(o => o.Objet3List).First(o => o.Id == newObj.Id);
+
+            uw.TrackChange(readObj);
+
+            readObj.Name = "updated name";
+            readObj.Objet3List[1].Value3 = 1;
+
+            uw.Save(readObj);
+            uw.Commit();
+
+            readObj = GetQuery<Objet1>().EagerLoad(o => o.Objet2).EagerLoad(o => o.Objet3List).First(o => o.Id == newObj.Id);
+            Assert.AreEqual("updated name", readObj.Name);
+            Assert.IsNotNull(readObj.Objet2);
+            Assert.AreEqual(77, readObj.Objet2.Value2);
+            Assert.IsNotNull(readObj.Objet3List);
+            Assert.AreEqual(2, readObj.Objet3List.Count);
+            Assert.AreEqual(88, readObj.Objet3List[0].Value3);
+            Assert.AreEqual(1, readObj.Objet3List[1].Value3);
+        }
+
+        [TestMethod]
         public void QueriesWithJoin()
         {
             if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
@@ -333,12 +365,6 @@ namespace F23Bag.Tests
             Assert.IsFalse(countGroup.Any(c => c.Count != 1));
             Assert.IsTrue(countGroup.Any(c => c.Value == 2.2));
             Assert.IsTrue(countGroup.Any(c => c.Value == 3.2));
-        }
-
-        [TestMethod, Ignore]
-        public void RecursiveRequest()
-        {
-            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
         }
 
         private string GetValue()

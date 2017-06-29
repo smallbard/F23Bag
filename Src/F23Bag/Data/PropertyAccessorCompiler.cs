@@ -14,6 +14,8 @@ namespace F23Bag.Data
         {
             if (property == null) return;
 
+            Property = property;
+
             if (property.CanWrite)
             {
                 if (!_setValues.ContainsKey(property))
@@ -38,6 +40,8 @@ namespace F23Bag.Data
                 GetPropertyValue = _getValues[property];
             }
         }
+
+        public PropertyInfo Property { get; private set; }
 
         public Action<object, object> SetPropertyValue { get; private set; }
 
