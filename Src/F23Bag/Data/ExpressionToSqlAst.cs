@@ -294,8 +294,6 @@ namespace F23Bag.Data
 
                             _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member, newElement));
                         }
-                        else if (mbAssign.Expression is ConstantExpression)
-                            _request.Select.Add(new SelectInfo(new DML.Constant(((ConstantExpression)mbAssign.Expression).Value), (PropertyInfo)mbAssign.Member, newElement));
                         else if (mbAssign.Expression is MethodCallExpression && ((MethodCallExpression)mbAssign.Expression).Method.DeclaringType.Equals(typeof(Queryable)))
                         {
                             Visit(mbAssign.Expression);
@@ -304,7 +302,10 @@ namespace F23Bag.Data
                             _request.Select.Add(new SelectInfo(subRequest, (PropertyInfo)mbAssign.Member, newElement));
                         }
                         else
-                            throw new NotSupportedException("No supported binding : " + binding.ToString());
+                        {
+                            Visit(mbAssign.Expression);
+                            _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)mbAssign.Member, newElement));
+                        }
 
                         newElement = false;
                     }
@@ -425,6 +426,12 @@ namespace F23Bag.Data
             _request.FromAlias.Equivalents.Add(filter.Parameters[0]);
 
             Visit(filter.Body);
+
+            if (SqlAstNode is ColumnAccess)
+            {
+                // boolean member access
+                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+            }
 
             if (m.Arguments[0].Type.GetGenericArguments()[0].IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Arguments[0].Type.GetGenericArguments()[0].GetGenericTypeDefinition()))
                 _request.Having = SqlAstNode;
@@ -577,6 +584,8 @@ namespace F23Bag.Data
             {
                 case ExpressionType.Not:
                     Visit(u.Operand);
+                    if (SqlAstNode is ColumnAccess) // boolean member access
+                        SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
                     SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Not, SqlAstNode);
                     break;
                 case ExpressionType.Convert:
@@ -600,8 +609,18 @@ namespace F23Bag.Data
 
             Visit(b.Left);
             var left = SqlAstNode;
+
             Visit(b.Right);
             var right = SqlAstNode;
+
+            if (b.NodeType == ExpressionType.And || b.NodeType == ExpressionType.AndAlso || b.NodeType == ExpressionType.Or || b.NodeType == ExpressionType.OrElse)
+            {
+                if (left is ColumnAccess) // boolean member access
+                    left = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+
+                if (right is ColumnAccess) // boolean member access
+                    right = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+            }
 
             switch (b.NodeType)
             {

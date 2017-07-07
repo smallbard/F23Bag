@@ -59,13 +59,17 @@ namespace F23Bag.Data
             }
 
             if (typeof(System.Collections.IEnumerable).IsAssignableFrom(expressionType) && expressionType != typeof(string))
-                return typeof(DbQueryProvider).GetMethod("GetResults", BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType.GetGenericArguments()[0]).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
-            else if (expressionType.IsClass && expressionType != typeof(string))
-                return typeof(DbQueryProvider).GetMethod("GetFirstResult", BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
+                return typeof(DbQueryProvider).GetMethod(nameof(GetResults), BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType.GetGenericArguments()[0]).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
+            else if (expressionType.IsClass && expressionType != typeof(string) && expressionType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+                return typeof(DbQueryProvider).GetMethod(nameof(GetFirstResult), BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
             else
                 try
                 {
                     return cmd.ExecuteScalar();
+                }
+                catch (Exception ex)
+                {
+                    throw new SQLException($"Error '{ex.Message}' in query : {commandText}", ex);
                 }
                 finally
                 {

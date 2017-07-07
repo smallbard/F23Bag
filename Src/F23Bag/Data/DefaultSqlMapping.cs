@@ -23,7 +23,7 @@ namespace F23Bag.Data
         {
             if (property == null) throw new ArgumentNullException(nameof(property));
 
-            if (property.PropertyType != typeof(string) && property.PropertyType.IsClass)
+            if (property.PropertyType != typeof(string) && (property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
             {
                 var alias = request.GetAliasFor(property);
                 if (alias == null)
@@ -42,7 +42,7 @@ namespace F23Bag.Data
                         inOr = r != request && r != null;
                         if (r != null) request = r;
                     }
-                    
+
                     request.Joins.Add(new Join(
                         inOr ? JoinTypeEnum.Left : JoinTypeEnum.Inner,
                         alias = new DML.AliasDefinition(GetSqlEquivalent(elementType)),
@@ -64,7 +64,7 @@ namespace F23Bag.Data
             var readOnlyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
             if (readOnlyAtt != null) property = readOnlyAtt.InverseProperty;
 
-            if ((property.PropertyType.IsClass && property.PropertyType != typeof(string)) || property.PropertyType.IsInterface) return "IDFK_" + property.Name.ToUpper();
+            if ((property.PropertyType.IsClass && property.PropertyType != typeof(string) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null) || property.PropertyType.IsInterface) return "IDFK_" + property.Name.ToUpper();
             if (property.Name.StartsWith("Id") && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper();
 
             var name = new StringBuilder();
@@ -105,7 +105,7 @@ namespace F23Bag.Data
 
         protected virtual IEnumerable<PropertyInfo> GetMappedPropertiesWithoutCache(Type type)
         {
-            return type.GetProperties().Where(p => ((!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string)) && p.GetCustomAttribute<TransientAttribute>() == null);
+            return type.GetProperties().Where(p => ((!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string) || p.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null) && p.GetCustomAttribute<TransientAttribute>() == null);
         }
 
         protected virtual string GetTableName(Type type)

@@ -7,5 +7,9 @@ namespace F23Bag.Data
         public SQLException(string message)
             : base(message)
         { }
+
+        public SQLException(string message, Exception innerException)
+            : base(message, innerException)
+        { }
     }
 }

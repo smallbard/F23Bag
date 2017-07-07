@@ -9,6 +9,7 @@ namespace F23Bag.Data
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class InversePropertyAttribute : Attribute
+
     {
         public InversePropertyAttribute(Type inversePropertyOwner, string inversePropertyName)
         {

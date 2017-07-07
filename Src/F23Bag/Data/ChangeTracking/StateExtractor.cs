@@ -54,9 +54,10 @@ namespace F23Bag.Data.ChangeTracking
             var arrayInitializers = new List<Expression>();
             var stateElementCtor = typeof(StateElement).GetConstructors()[0];
 
-            foreach (var property in sqlMapping.GetMappedSimpleProperties(entityType).Union(entityType.GetProperties().Where(p => p.PropertyType != typeof(string) && p.PropertyType.IsClass && p.GetCustomAttribute<TransientAttribute>() == null)))
+            foreach (var property in sqlMapping.GetMappedSimpleProperties(entityType).Union(entityType.GetProperties()
+                .Where(p => p.PropertyType != typeof(string) && p.PropertyType.IsClass && p.GetCustomAttribute<TransientAttribute>() == null && p.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)))
             {
-                if (!property.PropertyType.IsClass || property.PropertyType == typeof(string))
+                if (!property.PropertyType.IsClass || property.PropertyType == typeof(string) || property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null)
                     arrayInitializers.Add(Expression.New(stateElementCtor, Expression.Constant(property), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object))));
                 else if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 {

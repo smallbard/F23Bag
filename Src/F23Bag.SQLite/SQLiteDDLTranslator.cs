@@ -16,7 +16,7 @@ namespace F23Bag.SQLite
             var columnName = sqlMapping.GetColumnName(property);
             if (sqlMapping.GetIdProperty(property.DeclaringType).Name.Equals(property.Name) && property.PropertyType == typeof(int))
                 sql.Append(columnName).Append(" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT");
-            else if ((property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType != typeof(string))
+            else if ((property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType != typeof(string) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
             {
                 if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 {
@@ -48,6 +48,9 @@ namespace F23Bag.SQLite
 
         protected override string GetSqlTypeName(Type type)
         {
+            var att = type.GetCustomAttribute<DbValueTypeAttribute>();
+            if (att != null) type = att.EquivalentType;
+
             if (type == typeof(DateTime) || type == typeof(DateTime?))
                 return "INTEGER";
             else

@@ -57,7 +57,7 @@ namespace F23Bag.Data
                 _reader = reader;
                 _request = request;
                 _sqlTranslator = sqlTranslator;
-                _isSimpleType = typeof(T) == typeof(string) || !typeof(T).IsClass;
+                _isSimpleType = typeof(T) == typeof(string) || !typeof(T).IsClass || typeof(T).GetCustomAttribute<DbValueTypeAttribute>() != null;
                 _mapper = mapper;
                 _resolver = resolver;
                 _notEndOfReader = true;
@@ -80,7 +80,7 @@ namespace F23Bag.Data
                         for (var i = 0; i < parameters.Length; i++)
                         {
                             Expression exp = null;
-                            if (parameters[i].ParameterType.IsClass)
+                            if (parameters[i].ParameterType.IsClass && parameters[i].ParameterType.GetCustomAttribute<DbValueTypeAttribute>() == null)
                                 exp = Expression.TypeAs(
                                         Expression.MakeIndex(pDataReader, typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int)), new[] { Expression.Constant(i) }),
                                         parameters[i].ParameterType);

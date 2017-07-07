@@ -13,7 +13,8 @@ namespace F23Bag.Data.Mapping
 
         private LoadingPropertyInfo(PropertyInfo property, LazyLoadingType lazyLoadingType)
         {
-            if ((!property.PropertyType.IsClass && !property.PropertyType.IsInterface) || property.PropertyType == typeof(string)) throw new NotSupportedException("LazyLoad and EagerLoad are not available for simple types : " + property.Name);
+            if ((!property.PropertyType.IsClass && !property.PropertyType.IsInterface) || property.PropertyType == typeof(string) || property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null)
+                throw new NotSupportedException("LazyLoad and EagerLoad are not available for simple types : " + property.Name);
             if (property.GetGetMethod() == null || property.GetSetMethod() == null) throw new NotSupportedException("LazyLoad and EagerLoad need a property with public get and public set : " + property.Name);
 
             Property = property;
@@ -48,9 +49,9 @@ namespace F23Bag.Data.Mapping
         public override string ToString()
         {
             if (_asString != null) return _asString;
-
-            if (Parent == null) return _asString = Property.Name;
-            return _asString = Parent.ToString() + "." + Property.Name;
+            var sb = new System.Text.StringBuilder(Property.Name);
+            if (SubLoadingPropertyInfo.Count > 0) sb.Append('.').Append(SubLoadingPropertyInfo[0].ToString());
+            return _asString = sb.ToString();
         }
 
         public IEnumerable<LoadingPropertyInfo> GetSubLoadingPropertyInfoforLazy()

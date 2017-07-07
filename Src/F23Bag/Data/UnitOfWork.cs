@@ -216,7 +216,7 @@ namespace F23Bag.Data
                 {
                     var value = pac.GetPropertyValue(o);
 
-                    if (pac.Property.PropertyType.IsClass && pac.Property.PropertyType != typeof(string))
+                    if (pac.Property.PropertyType.IsClass && pac.Property.PropertyType != typeof(string) && pac.Property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
                     {
                         if (typeof(System.Collections.IEnumerable).IsAssignableFrom(pac.Property.PropertyType)) continue;
 

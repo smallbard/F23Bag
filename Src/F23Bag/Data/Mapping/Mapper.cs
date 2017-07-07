@@ -1,5 +1,4 @@
 ﻿using F23Bag.Data.DML;
-using F23Bag.Domain;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -69,8 +68,16 @@ namespace F23Bag.Data.Mapping
             
             if (LoadingPropertyInfos.Count > 0)
             {
-                LoadingPropertyInfo.RegroupLoadingInfo(LoadingPropertyInfos);
-                AddLoading(request, request.FromAlias, LoadingPropertyInfos);
+                if (request.ProjectionType != null && request.ProjectionType != LoadingPropertyInfos[0].Property.DeclaringType)
+                {
+                    // should have been a .Select(o => new { ... }
+                    LoadingPropertyInfos.Clear();
+                }
+                else
+                {
+                    LoadingPropertyInfo.RegroupLoadingInfo(LoadingPropertyInfos);
+                    AddLoading(request, request.FromAlias, LoadingPropertyInfos);
+                }
             }
 
             if ((request.Take > 0 || request.Skip > 0) && request.Orders.Count == 0)
@@ -190,25 +197,24 @@ namespace F23Bag.Data.Mapping
                 else if (selectInfo.Property.PropertyType.IsEnum)
                     selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
                 else
-                    selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                {
+                    try
+                    {
+                        selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                    }
+                    catch (NullReferenceException)
+                    {
+                        if (DBNull.Value.Equals(reader[selectIndex]))
+                        {
+                            throw new SQLException($"{selectInfo.Property.Name} does not accept null (NULL was found in database).");
+                        }
+                        else
+                            throw;
+                    }
+                }
                 selectIndex++;
             }
             while (selectIndex < request.Select.Count && request.Select[selectIndex].Property != null && !request.Select[selectIndex].IsNewElement);
-            
-
-            /*foreach (var property in _sqlMapping.GetMappedProperties(elementType))
-            {
-                var selectInfo = request.Select[selectIndex];
-                var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
-
-                if (mapper != null)
-                    mapper.Map(element, selectInfo.Property, reader, selectIndex);
-                else if (selectInfo.Property.PropertyType.IsEnum)
-                    selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
-                else
-                    selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
-                selectIndex++;
-            }*/
         }
 
         private void AddSelectForSimpleProperties(Request request, Type elementType, AliasDefinition alias)
@@ -243,7 +249,7 @@ namespace F23Bag.Data.Mapping
                     var newAlias = (AliasDefinition)_sqlMapping.GetSqlEquivalent(request, alias, lpi.Property, true);
 
                     var startSelectIndex = request.Select.Count;
-                    AddSelectForSimpleProperties(request, elementType, newAlias);
+                    if (request.Select.Count != 1 || !(request.Select[0].SelectSql is DML.UnaryExpression)) AddSelectForSimpleProperties(request, elementType, newAlias);
                     _loadingPropertyInfoSelectIndexes[lpi] = Tuple.Create(startSelectIndex, request.Select.Count - 1);
 
                     if (lpi.SubLoadingPropertyInfo.Count > 0) AddLoading(request, newAlias, lpi.SubLoadingPropertyInfo);
