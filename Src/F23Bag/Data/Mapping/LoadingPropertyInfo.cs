@@ -13,7 +13,7 @@ namespace F23Bag.Data.Mapping
 
         private LoadingPropertyInfo(PropertyInfo property, LazyLoadingType lazyLoadingType)
         {
-            if ((!property.PropertyType.IsClass && !property.PropertyType.IsInterface) || property.PropertyType == typeof(string) || property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null)
+            if (property.PropertyType.IsSimpleMappedType())
                 throw new NotSupportedException("LazyLoad and EagerLoad are not available for simple types : " + property.Name);
             if (property.GetGetMethod() == null || property.GetSetMethod() == null) throw new NotSupportedException("LazyLoad and EagerLoad need a property with public get and public set : " + property.Name);
 
@@ -115,7 +115,7 @@ namespace F23Bag.Data.Mapping
 
         private static LoadingPropertyInfo SearchImmediateParentDescendant(LoadingPropertyInfo root, LoadingPropertyInfo child)
         {
-            if (root.Property.DeclaringType != child.Parent.Property.DeclaringType && root.Property.Name != child.Parent.Property.Name)
+            if (root.Property.ReflectedType != child.Parent.Property.ReflectedType && root.Property.Name != child.Parent.Property.Name)
             {
                 if (root.SubLoadingPropertyInfo.Count == 0) return SearchImmediateParentAscendant(root, child);
 
@@ -133,7 +133,7 @@ namespace F23Bag.Data.Mapping
 
         private static LoadingPropertyInfo SearchImmediateParentAscendant(LoadingPropertyInfo root, LoadingPropertyInfo child)
         {
-            if (root.Property.DeclaringType != child.Parent.Property.DeclaringType && root.Property.Name != child.Parent.Property.Name)
+            if (root.Property.ReflectedType != child.Parent.Property.ReflectedType && root.Property.Name != child.Parent.Property.Name)
             {
                 if (root.Parent == null) return null;
 

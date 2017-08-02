@@ -23,7 +23,7 @@ namespace F23Bag.Data
                     var paramObj = Expression.Parameter(typeof(object));
                     var paramValue = Expression.Parameter(typeof(object));
                     _setValues[property] = Expression.Lambda<Action<object, object>>(
-                        Expression.Assign(Expression.MakeMemberAccess(Expression.Convert(paramObj, property.DeclaringType), property), Expression.Convert(paramValue, property.PropertyType)), paramObj, paramValue).Compile();
+                        Expression.Assign(Expression.MakeMemberAccess(Expression.Convert(paramObj, property.ReflectedType), property), Expression.Convert(paramValue, property.PropertyType)), paramObj, paramValue).Compile();
                 }
 
                 SetPropertyValue = _setValues[property];
@@ -34,7 +34,7 @@ namespace F23Bag.Data
                 if (!_getValues.ContainsKey(property))
                 {
                     var paramObj = Expression.Parameter(typeof(object));
-                    _getValues[property] = Expression.Lambda<Func<object, object>>(Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(paramObj, property.DeclaringType), property), typeof(object)), paramObj).Compile();
+                    _getValues[property] = Expression.Lambda<Func<object, object>>(Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(paramObj, property.ReflectedType), property), typeof(object)), paramObj).Compile();
                 }
 
                 GetPropertyValue = _getValues[property];

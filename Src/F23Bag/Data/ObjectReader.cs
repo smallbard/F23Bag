@@ -57,7 +57,7 @@ namespace F23Bag.Data
                 _reader = reader;
                 _request = request;
                 _sqlTranslator = sqlTranslator;
-                _isSimpleType = typeof(T) == typeof(string) || !typeof(T).IsClass || typeof(T).GetCustomAttribute<DbValueTypeAttribute>() != null;
+                _isSimpleType = typeof(T).IsSimpleMappedType();
                 _mapper = mapper;
                 _resolver = resolver;
                 _notEndOfReader = true;

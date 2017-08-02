@@ -102,7 +102,7 @@ namespace F23Bag.AutomaticUI.Layouts
             if (layout == null)
             {
                 // create a default layout
-                var members = realDataType.GetMembers().Where(mb => !(mb is ConstructorInfo) && !(mb is FieldInfo) && !(mb is EventInfo) && mb.DeclaringType != typeof(object) && (!(mb is MethodInfo) || !((MethodInfo)mb).IsSpecialName)).OrderBy(mb => mb.Name).ToArray();
+                var members = realDataType.GetMembers().Where(mb => !(mb is ConstructorInfo) && !(mb is FieldInfo) && !(mb is EventInfo) && mb.ReflectedType != typeof(object) && (!(mb is MethodInfo) || !((MethodInfo)mb).IsSpecialName)).OrderBy(mb => mb.Name).ToArray();
                 if (dataGridLayoutAsked)
                     layout = new DataGridLayout(layoutProviders, options, members.Select(mb => new OneMemberLayout(layoutProviders, options, mb, false, null, null)), null, null);
                 else

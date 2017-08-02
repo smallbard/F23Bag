@@ -15,7 +15,7 @@ namespace F23Bag.AutomaticUI.Layouts
         {
             Member = member;
             _hasCloseBehavior = hasCloseBehavior;
-            Label = label ?? member.DeclaringType.Name + "." + member.Name;
+            Label = label ?? member.ReflectedType.Name + "." + member.Name;
             ItemsSource = itemsSource;
         }
 

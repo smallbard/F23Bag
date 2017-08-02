@@ -44,7 +44,10 @@ namespace F23Bag.Data.ChangeTracking
         {
             if (o == null) return null;
             if (states.ContainsKey(o)) return states[o];
-            return states[o] = new State(o, _extractState(o, states));
+            var state = new State(o);
+            states[o] = state;
+            state.StateElements = _extractState(o, states);
+            return state;
         }
 
         private void Initialize(Type entityType, ISQLMapping sqlMapping)
@@ -55,11 +58,11 @@ namespace F23Bag.Data.ChangeTracking
             var stateElementCtor = typeof(StateElement).GetConstructors()[0];
 
             foreach (var property in sqlMapping.GetMappedSimpleProperties(entityType).Union(entityType.GetProperties()
-                .Where(p => p.PropertyType != typeof(string) && p.PropertyType.IsClass && p.GetCustomAttribute<TransientAttribute>() == null && p.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)))
+                .Where(p => p.PropertyType.IsEntityOrCollection() && p.GetCustomAttribute<TransientAttribute>() == null)))
             {
-                if (!property.PropertyType.IsClass || property.PropertyType == typeof(string) || property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null)
+                if (property.PropertyType.IsSimpleMappedType() || property.GetCustomAttribute<DontExtractStateAttribute>() != null)
                     arrayInitializers.Add(Expression.New(stateElementCtor, Expression.Constant(property), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object))));
-                else if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
+                else if (property.PropertyType.IsCollection())
                 {
                     var elementType = property.PropertyType.GetGenericArguments()[0];
                     var stateExtractor = GetStateExtractor(sqlMapping, elementType);
@@ -90,8 +93,8 @@ namespace F23Bag.Data.ChangeTracking
                 {
                     var stateExtractor = GetStateExtractor(sqlMapping, property.PropertyType);
                     arrayInitializers.Add(Expression.New(
-                        stateElementCtor, 
-                        Expression.Constant(property), 
+                        stateElementCtor,
+                        Expression.Constant(property),
                         Expression.Call(Expression.Constant(stateExtractor), typeof(StateExtractor).GetMethod(nameof(GetState), BindingFlags.NonPublic | BindingFlags.Instance), Expression.Convert(Expression.MakeMemberAccess(Expression.Convert(entityParameter, entityType), property), typeof(object)), statesParameter)));
                 }
             }
@@ -115,15 +118,14 @@ namespace F23Bag.Data.ChangeTracking
 
     internal class State
     {
-        public State(object stateOwner, StateElement[] stateElements)
+        public State(object stateOwner)
         {
             StateOwner = stateOwner;
-            StateElements = stateElements;
         }
 
         public object StateOwner { get; private set; }
 
-        public StateElement[] StateElements { get; private set; }
+        public StateElement[] StateElements { get; internal set; }
 
         public IEnumerable<PropertyInfo> GetChangedProperties(State newState)
         {
@@ -158,7 +160,7 @@ namespace F23Bag.Data.ChangeTracking
                         }
                     }
                 }
-                else if (!object.Equals(value, newState.StateElements[i].Value))
+                else if (!object.Equals(value, newState?.StateElements[i]?.Value))
                     yield return StateElements[i].Property;
             }
         }

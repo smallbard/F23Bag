@@ -47,7 +47,7 @@ namespace F23Bag.Data
                 var ds = new DoSave<T>();
                 ds.BeforeUpdate += (s, e) => BeforeUpdate?.Invoke(this, e);
                 ds.BeforeInsert += (s, e) => BeforeInsert?.Invoke(this, e);
-                ds.Save(connection, o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, _extractedStates);
+                ds.Save(connection, o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, _extractedStates, this);
             });
         }
 
@@ -55,41 +55,7 @@ namespace F23Bag.Data
         {
             if (o == null) throw new ArgumentNullException(nameof(o));
 
-            _operations.Add(connection =>
-            {
-                _extractedStates.Remove(o);
-
-                var idProperty = _sqlMapping.GetIdProperty(o.GetType());
-                var id = idProperty.GetValue(o);
-                var table = _sqlMapping.GetSqlEquivalent(o.GetType());
-
-                var fromAlias = new AliasDefinition(table);
-                var request = new Request()
-                {
-                    FromAlias = fromAlias,
-                    RequestType = RequestType.Delete
-                };
-                request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
-
-                BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o));
-
-                var parameters = new List<Tuple<string, object>>();
-                var sql = _sqlProvider.GetSQLTranslator().Translate(request, parameters);
-
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = sql;
-                    foreach (var parameter in parameters)
-                    {
-                        var dbParameter = cmd.CreateParameter();
-                        dbParameter.ParameterName = parameter.Item1;
-                        dbParameter.Value = parameter.Item2;
-                        cmd.Parameters.Add(dbParameter);
-                    }
-                    cmd.ExecuteNonQuery();
-                }
-
-            });
+            _operations.Add(connection => ExecuteDelete(o, connection));
         }
 
         public void Delete<TSource>(IQueryable<TSource> source)
@@ -152,13 +118,48 @@ namespace F23Bag.Data
             _alreadySaved.Clear();
         }
 
+        private void ExecuteDelete(object o, IDbConnection connection)
+        {
+            _extractedStates.Remove(o);
+
+            var idProperty = _sqlMapping.GetIdProperty(o.GetType());
+            var id = idProperty.GetValue(o);
+            var table = _sqlMapping.GetSqlEquivalent(o.GetType());
+
+            var fromAlias = new AliasDefinition(table);
+            var request = new Request()
+            {
+                FromAlias = fromAlias,
+                RequestType = RequestType.Delete
+            };
+            request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
+
+            BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o));
+
+            var parameters = new List<Tuple<string, object>>();
+            var sql = _sqlProvider.GetSQLTranslator().Translate(request, parameters);
+
+            using (var cmd = connection.CreateCommand())
+            {
+                cmd.CommandText = sql;
+                foreach (var parameter in parameters)
+                {
+                    var dbParameter = cmd.CreateParameter();
+                    dbParameter.ParameterName = parameter.Item1;
+                    dbParameter.Value = parameter.Item2;
+                    cmd.Parameters.Add(dbParameter);
+                }
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         private abstract class DoSave
         {
             public event EventHandler<UnitOfWorkEventArgs> BeforeUpdate;
 
             public event EventHandler<UnitOfWorkEventArgs> BeforeInsert;
 
-            public abstract void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates);
+            public abstract void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates, UnitOfWork uw);
 
             protected void OnBeforeUpdate(UnitOfWorkEventArgs args)
             {
@@ -173,7 +174,7 @@ namespace F23Bag.Data
 
         private class DoSave<T> : DoSave
         {
-            public override void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates)
+            public override void Save(IDbConnection connection, object o, PropertyInfo parentProperty, object parentId, HashSet<object> alreadySaved, ISQLProvider sqlProvider, ISQLMapping sqlMapping, Dictionary<object, State> extractedStates, UnitOfWork uw)
             {
                 // no infinite loop
                 if (alreadySaved.Contains(o)) return;
@@ -216,14 +217,14 @@ namespace F23Bag.Data
                 {
                     var value = pac.GetPropertyValue(o);
 
-                    if (pac.Property.PropertyType.IsClass && pac.Property.PropertyType != typeof(string) && pac.Property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+                    if (pac.Property.PropertyType.IsEntityOrCollection() && pac.Property.GetCustomAttribute<DontExtractStateAttribute>() == null)
                     {
-                        if (typeof(System.Collections.IEnumerable).IsAssignableFrom(pac.Property.PropertyType)) continue;
+                        if (pac.Property.PropertyType.IsCollection()) continue;
 
                         if (value != null)
                         {
                             var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(pac.Property.PropertyType));
-                            ds.Save(connection, value, null, null, alreadySaved, sqlProvider, sqlMapping, extractedStates);
+                            ds.Save(connection, value, null, null, alreadySaved, sqlProvider, sqlMapping, extractedStates, uw);
                             value = new PropertyAccessorCompiler(sqlMapping.GetIdProperty(value.GetType())).GetPropertyValue(value);
                         }
                     }
@@ -246,33 +247,36 @@ namespace F23Bag.Data
                     request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId), new ColumnAccess(fromAlias, new Identifier(columnName))));
                 }
 
-                if (doInsert)
-                    OnBeforeInsert(new UnitOfWorkEventArgs(connection, null, table, o));
-                else
-                    OnBeforeUpdate(new UnitOfWorkEventArgs(connection, id, table, o));
-
-                var parameters = new List<Tuple<string, object>>();
-                var sql = sqlProvider.GetSQLTranslator().Translate(request, parameters);
-
-                using (var cmd = connection.CreateCommand())
+                if (request.UpdateOrInsert.Count > 0)
                 {
-                    cmd.CommandText = sql;
-                    foreach (var parameter in parameters)
-                    {
-                        var dbParameter = cmd.CreateParameter();
-                        dbParameter.ParameterName = parameter.Item1;
-                        dbParameter.Value = parameter.Item2;
-                        cmd.Parameters.Add(dbParameter);
-                    }
-
                     if (doInsert)
-                        pacId.SetPropertyValue(o, Convert.ChangeType(id = cmd.ExecuteScalar(), idProperty.PropertyType));
+                        OnBeforeInsert(new UnitOfWorkEventArgs(connection, null, table, o));
                     else
-                        cmd.ExecuteNonQuery();
+                        OnBeforeUpdate(new UnitOfWorkEventArgs(connection, id, table, o));
+
+                    var parameters = new List<Tuple<string, object>>();
+                    var sql = sqlProvider.GetSQLTranslator().Translate(request, parameters);
+
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.CommandText = sql;
+                        foreach (var parameter in parameters)
+                        {
+                            var dbParameter = cmd.CreateParameter();
+                            dbParameter.ParameterName = parameter.Item1;
+                            dbParameter.Value = parameter.Item2;
+                            cmd.Parameters.Add(dbParameter);
+                        }
+
+                        if (doInsert)
+                            pacId.SetPropertyValue(o, Convert.ChangeType(id = cmd.ExecuteScalar(), idProperty.PropertyType));
+                        else
+                            cmd.ExecuteNonQuery();
+                    }
                 }
 
                 foreach (var property in properties)
-                    if (property.Property.PropertyType.IsClass && property.Property.PropertyType != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.Property.PropertyType))
+                    if (property.Property.PropertyType.IsCollection())
                     {
                         var value = property.GetPropertyValue(o);
                         if (value == null) continue;
@@ -280,7 +284,17 @@ namespace F23Bag.Data
                         var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Property.PropertyType.GetGenericArguments()[0]));
                         foreach (var obj in (System.Collections.IEnumerable)value)
                         {
-                            doSave.Save(connection, obj, property.Property, id, alreadySaved, sqlProvider, sqlMapping, extractedStates);
+                            doSave.Save(connection, obj, property.Property, id, alreadySaved, sqlProvider, sqlMapping, extractedStates, uw);
+                        }
+
+                        if (initialState != null)
+                        {
+                            var initialStateCollection = (object[])initialState.StateElements.First(e => e.Property == property.Property).Value;
+                            var newStateCollection = (object[])newState.StateElements.First(e => e.Property == property.Property).Value;
+
+                            // search for delete
+                            foreach (var stateOwner in initialStateCollection.OfType<State>().Where(s => !newStateCollection.OfType<State>().Any(ns => object.Equals(ns.StateOwner, s.StateOwner))).Select(s => s.StateOwner))
+                                uw.ExecuteDelete(stateOwner, connection);
                         }
                     }
             }

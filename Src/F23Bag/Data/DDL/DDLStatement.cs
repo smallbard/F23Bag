@@ -14,7 +14,7 @@ namespace F23Bag.Data.DDL
         {
             StatementType = statementType;
             Property = property;
-            ElementType = property.DeclaringType;
+            ElementType = property.ReflectedType;
         }
 
         public Type ElementType { get; private set; }

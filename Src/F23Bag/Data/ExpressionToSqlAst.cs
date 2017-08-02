@@ -62,27 +62,27 @@ namespace F23Bag.Data
 
         protected override Expression VisitMethodCall(MethodCallExpression m)
         {
-            if (m.Method.DeclaringType == typeof(string) && m.Method.GetParameters().Length == 1) return VisitStringMethodCall(m);
-            if (m.Method.DeclaringType == typeof(QueryableExtension)) return VisitQueryableExtensionMethodCall(m);
-            if (m.Method.DeclaringType == typeof(UnitOfWork)) return VisiteUnitOfWorkMethodCall(m);
+            if (m.Method.ReflectedType == typeof(string) && m.Method.GetParameters().Length == 1) return VisitStringMethodCall(m);
+            if (m.Method.ReflectedType == typeof(QueryableExtension)) return VisitQueryableExtensionMethodCall(m);
+            if (m.Method.ReflectedType == typeof(UnitOfWork)) return VisiteUnitOfWorkMethodCall(m);
 
             if (m.Arguments.Count > 0) Visit(m.Arguments[0]);
 
-            if ((m.Method.DeclaringType == typeof(Queryable) || m.Method.DeclaringType == typeof(Enumerable)) && m.Method.Name == "Skip")
+            if ((m.Method.ReflectedType == typeof(Queryable) || m.Method.ReflectedType == typeof(Enumerable)) && m.Method.Name == "Skip")
             {
                 _request.Skip = (int)((ConstantExpression)m.Arguments[1]).Value;
                 return m;
             }
-            else if ((m.Method.DeclaringType == typeof(Queryable) || m.Method.DeclaringType == typeof(Enumerable)) && m.Method.Name == "Take")
+            else if ((m.Method.ReflectedType == typeof(Queryable) || m.Method.ReflectedType == typeof(Enumerable)) && m.Method.Name == "Take")
             {
                 _request.Take = (int)((ConstantExpression)m.Arguments[1]).Value;
                 return m;
             }
 
-            if (m.Method.DeclaringType == typeof(Queryable)) return VisitQueryableMethodCall(m);
-            if (m.Method.DeclaringType == typeof(Enumerable)) return VisitEnumerableMethodCall(m);
+            if (m.Method.ReflectedType == typeof(Queryable)) return VisitQueryableMethodCall(m);
+            if (m.Method.ReflectedType == typeof(Enumerable)) return VisitEnumerableMethodCall(m);
 
-            if (m.Method.DeclaringType.IsGenericType && m.Method.DeclaringType.GetGenericTypeDefinition() == typeof(List<>) && m.Method.Name == "Contains")
+            if (m.Method.ReflectedType.IsGenericType && m.Method.ReflectedType.GetGenericTypeDefinition() == typeof(List<>) && m.Method.Name == "Contains")
             {
                 Visit(m.Arguments[0]);
 
@@ -294,7 +294,7 @@ namespace F23Bag.Data
 
                             _request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(_request, alias, GetRealProperty((PropertyInfo)mbAccess.Member), _inOr), (PropertyInfo)mbAssign.Member, newElement));
                         }
-                        else if (mbAssign.Expression is MethodCallExpression && ((MethodCallExpression)mbAssign.Expression).Method.DeclaringType.Equals(typeof(Queryable)))
+                        else if (mbAssign.Expression is MethodCallExpression && ((MethodCallExpression)mbAssign.Expression).Method.ReflectedType.Equals(typeof(Queryable)))
                         {
                             Visit(mbAssign.Expression);
                             var subRequest = _request;
@@ -456,7 +456,7 @@ namespace F23Bag.Data
                 var arg = (MemberExpression)newExpArgument;
                 if (!(arg.Member is PropertyInfo)) throw new NotSupportedException("Only property access are supported : " + arg.ToString());
 
-                if (arg.Member.Name == "Key" && arg.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(arg.Member.DeclaringType.GetGenericTypeDefinition()))
+                if (arg.Member.Name == "Key" && arg.Member.ReflectedType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(arg.Member.ReflectedType.GetGenericTypeDefinition()))
                     foreach (var grp in _request.GroupBy) _request.Select.Add(new SelectInfo(grp, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
                 else
                 {
@@ -476,7 +476,7 @@ namespace F23Bag.Data
             else if (newExpArgument is MethodCallExpression)
             {
                 var arg = (MethodCallExpression)newExpArgument;
-                if (arg.Method.DeclaringType == typeof(Queryable))
+                if (arg.Method.ReflectedType == typeof(Queryable))
                 {
                     Visit(arg);
                     _request.ParentRequest.Select.Add(new SelectInfo(_request, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
@@ -484,7 +484,7 @@ namespace F23Bag.Data
                 }
                 else
                 {
-                    if (!(arg.Method.DeclaringType == typeof(Enumerable)))
+                    if (!(arg.Method.ReflectedType == typeof(Enumerable)))
                         throw new NotSupportedException("Only method from Enumerable and queryable are supported : " + arg.ToString());
                     Visit(arg);
                     _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
@@ -719,7 +719,7 @@ namespace F23Bag.Data
         {
             Visit(m.Expression);
 
-            if (m.Member.Name == "Key" && m.Member.DeclaringType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Member.DeclaringType.GetGenericTypeDefinition()))
+            if (m.Member.Name == "Key" && m.Member.ReflectedType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Member.ReflectedType.GetGenericTypeDefinition()))
                 SqlAstNode = _request.GroupBy[0];
             else
                 SqlAstNode = _sqlMapping.GetSqlEquivalent(_request, (AliasDefinition)SqlAstNode, GetRealProperty((PropertyInfo)m.Member), _inOr);

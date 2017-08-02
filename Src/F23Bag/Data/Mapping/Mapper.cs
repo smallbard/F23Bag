@@ -68,7 +68,7 @@ namespace F23Bag.Data.Mapping
             
             if (LoadingPropertyInfos.Count > 0)
             {
-                if (request.ProjectionType != null && request.ProjectionType != LoadingPropertyInfos[0].Property.DeclaringType)
+                if (request.ProjectionType != null && request.ProjectionType != LoadingPropertyInfos[0].Property.ReflectedType)
                 {
                     // should have been a .Select(o => new { ... }
                     LoadingPropertyInfos.Clear();
@@ -83,7 +83,7 @@ namespace F23Bag.Data.Mapping
             if ((request.Take > 0 || request.Skip > 0) && request.Orders.Count == 0)
                 for (var i = 0; i < request.Select.Count; i++)
                 {
-                    var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType);
+                    var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.ReflectedType);
                     if (idProperty != null && idProperty.Name.Equals(request.Select[i].Property.Name))
                     {
                         request.Orders.Add(new OrderElement(request.Select[i].SelectSql, true));
@@ -99,7 +99,7 @@ namespace F23Bag.Data.Mapping
             var idIndex = -1;
             for (var i = 0; i < request.Select.Count; i++)
             {
-                var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.DeclaringType);
+                var idProperty = _sqlMapping.GetIdProperty(request.Select[i].Property.ReflectedType);
                 if (idProperty != null && idProperty.Name.Equals(request.Select[i].Property.Name))
                 {
                     idIndex = i;

@@ -58,9 +58,9 @@ namespace F23Bag.Data
                 cmd.Parameters.Add(dbParameter);
             }
 
-            if (typeof(System.Collections.IEnumerable).IsAssignableFrom(expressionType) && expressionType != typeof(string))
+            if (expressionType.IsCollection())
                 return typeof(DbQueryProvider).GetMethod(nameof(GetResults), BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType.GetGenericArguments()[0]).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
-            else if (expressionType.IsClass && expressionType != typeof(string) && expressionType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+            else if (expressionType.IsEntityOrCollection())
                 return typeof(DbQueryProvider).GetMethod(nameof(GetFirstResult), BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(expressionType).Invoke(this, new object[] { connection, cmd, cmd.ExecuteReader(), request, mapper });
             else
                 try

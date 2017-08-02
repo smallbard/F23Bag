@@ -23,12 +23,12 @@ namespace F23Bag.Data
         {
             if (property == null) throw new ArgumentNullException(nameof(property));
 
-            if (property.PropertyType != typeof(string) && (property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+            if (property.PropertyType.IsEntityOrCollection())
             {
                 var alias = request.GetAliasFor(property);
                 if (alias == null)
                 {
-                    var elementType = typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType) ? property.PropertyType.GetGenericArguments()[0] : property.PropertyType;
+                    var elementType = property.PropertyType.IsCollection() ? property.PropertyType.GetGenericArguments()[0] : property.PropertyType;
 
                     //if subrequest, search the request with the ownerAlias
                     if (request.ParentRequest != null)
@@ -64,7 +64,7 @@ namespace F23Bag.Data
             var readOnlyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
             if (readOnlyAtt != null) property = readOnlyAtt.InverseProperty;
 
-            if ((property.PropertyType.IsClass && property.PropertyType != typeof(string) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null) || property.PropertyType.IsInterface) return "IDFK_" + property.Name.ToUpper();
+            if (property.PropertyType.IsEntityOrCollection()) return "IDFK_" + property.Name.ToUpper();
             if (property.Name.StartsWith("Id") && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper();
 
             var name = new StringBuilder();
@@ -105,7 +105,7 @@ namespace F23Bag.Data
 
         protected virtual IEnumerable<PropertyInfo> GetMappedPropertiesWithoutCache(Type type)
         {
-            return type.GetProperties().Where(p => ((!p.PropertyType.IsClass && !p.PropertyType.IsInterface) || p.PropertyType == typeof(string) || p.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() != null) && p.GetCustomAttribute<TransientAttribute>() == null);
+            return type.GetProperties().Where(p => p.PropertyType.IsSimpleMappedType() && p.GetCustomAttribute<TransientAttribute>() == null);
         }
 
         protected virtual string GetTableName(Type type)
@@ -121,7 +121,7 @@ namespace F23Bag.Data
         {
             if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
-                    GetSqlEquivalent(request, aliasOwner, GetIdProperty(property.DeclaringType), inOr),
+                    GetSqlEquivalent(request, aliasOwner, GetIdProperty(property.ReflectedType), inOr),
                     new ColumnAccess(aliasElement, new DML.Identifier(GetColumnName(property))));
             else
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,

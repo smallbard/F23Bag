@@ -43,7 +43,7 @@ namespace F23Bag.Data
                 if (isAlter)
                     constraintsAndAlter.Add(columnDefinition.ToString());
                 else
-                    constraintsAndAlter.Add(new StringBuilder("ALTER TABLE ").Append(((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.Property.DeclaringType)).IdentifierName).Append(" ADD COLUMN ").Append(columnDefinition).ToString());
+                    constraintsAndAlter.Add(new StringBuilder("ALTER TABLE ").Append(((Identifier)sqlMapping.GetSqlEquivalent(ddlStatement.Property.ReflectedType)).IdentifierName).Append(" ADD COLUMN ").Append(columnDefinition).ToString());
                 return;
             }
 

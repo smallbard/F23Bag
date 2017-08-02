@@ -31,7 +31,7 @@ namespace F23Bag.Data
         private static bool CanBeEvaluatedLocally(Expression expression)
         {
             return expression.NodeType != ExpressionType.Parameter && (expression.NodeType != ExpressionType.Call || 
-                (((MethodCallExpression)expression).Method.DeclaringType != typeof(QueryableExtension) && ((MethodCallExpression)expression).Method.DeclaringType != typeof(UnitOfWork)));
+                (((MethodCallExpression)expression).Method.ReflectedType != typeof(QueryableExtension) && ((MethodCallExpression)expression).Method.ReflectedType != typeof(UnitOfWork)));
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace F23Bag.Data
                     _cannotBeEvaluated = false;
 
                     _inQueryableExtensionOrUnitOfWork = _inQueryableExtensionOrUnitOfWork || expression is MethodCallExpression && 
-                        (((MethodCallExpression)expression).Method.DeclaringType == typeof(QueryableExtension) || ((MethodCallExpression)expression).Method.DeclaringType == typeof(UnitOfWork));
+                        (((MethodCallExpression)expression).Method.ReflectedType == typeof(QueryableExtension) || ((MethodCallExpression)expression).Method.ReflectedType == typeof(UnitOfWork));
 
                     base.Visit(expression);
 
