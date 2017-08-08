@@ -11,12 +11,9 @@ namespace F23Bag.Data
         private readonly QueryProvider _provider;
         private readonly Expression _expression;
 
-        public Query(QueryProvider provider)
-        {
-            if (provider == null) throw new ArgumentNullException(nameof(provider));
-            _provider = provider;
-            _expression = Expression.Parameter(GetType());
-        }
+        public Query(ISQLProvider sqlProvider, ISQLMapping sqlMapping, IEnumerable<IExpresstionToSqlAst> customConverters, Func<Type, object> resolve)
+            : this(new DbQueryProvider(sqlProvider, sqlMapping, customConverters, resolve), Expression.Parameter(typeof(Query<T>)))
+        { }
 
         internal Query(QueryProvider provider, Expression expression)
         {

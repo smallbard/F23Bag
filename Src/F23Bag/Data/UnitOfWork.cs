@@ -132,7 +132,7 @@ namespace F23Bag.Data
                 FromAlias = fromAlias,
                 RequestType = RequestType.Delete
             };
-            request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
+            request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id, _sqlMapping));
 
             BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o));
 
@@ -229,10 +229,10 @@ namespace F23Bag.Data
                         }
                     }
 
-                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value), new ColumnAccess(fromAlias, new Identifier(sqlMapping.GetColumnName(pac.Property)))));
+                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(value, sqlMapping), new ColumnAccess(fromAlias, new Identifier(sqlMapping.GetColumnName(pac.Property)))));
                 }
 
-                if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id));
+                if (!doInsert) request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id, sqlMapping));
 
                 if (parentProperty != null && parentId != null)
                 {
@@ -244,7 +244,7 @@ namespace F23Bag.Data
                             break;
                         }
 
-                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId), new ColumnAccess(fromAlias, new Identifier(columnName))));
+                    request.UpdateOrInsert.Add(new UpdateOrInsertInfo(new Constant(parentId, sqlMapping), new ColumnAccess(fromAlias, new Identifier(columnName))));
                 }
 
                 if (request.UpdateOrInsert.Count > 0)

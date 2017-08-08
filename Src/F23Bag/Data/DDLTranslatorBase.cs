@@ -54,6 +54,8 @@ namespace F23Bag.Data
 
         protected virtual string GetSqlTypeName(Type type)
         {
+            type = type.GetDbValueType();
+
             if (type == typeof(int) || type == typeof(int?))
                 return "INTEGER";
             else if (type == typeof(long) || type == typeof(long?))

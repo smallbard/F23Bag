@@ -16,9 +16,9 @@ namespace F23Bag.SqlServer
             var columnName = sqlMapping.GetColumnName(property);
             if (sqlMapping.GetIdProperty(property.DeclaringType).Name.Equals(property.Name) && property.PropertyType == typeof(int))
                 sql.Append(columnName).Append(" INTEGER NOT NULL IDENTITY PRIMARY KEY");
-            else if ((property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType != typeof(string) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+            else if (property.PropertyType.IsEntityOrCollection())
             {
-                if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
+                if (property.PropertyType.IsCollection())
                 {
                     var idProperty = sqlMapping.GetIdProperty(property.DeclaringType);
                     sql.Append("ALTER TABLE ")

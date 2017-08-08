@@ -19,9 +19,9 @@ namespace F23Bag.ISeries
             var columnName = sqlMapping.GetColumnName(property);
             if (sqlMapping.GetIdProperty(property.DeclaringType).Name.Equals(property.Name) && property.PropertyType == typeof(int))
                 sql.Append(columnName).Append(" INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1) PRIMARY KEY");
-            else if ((property.PropertyType.IsClass || property.PropertyType.IsInterface) && property.PropertyType != typeof(string) && property.PropertyType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+            else if (property.PropertyType.IsEntityOrCollection())
             {
-                if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
+                if (property.PropertyType.IsCollection())
                 {
                     var idProperty = sqlMapping.GetIdProperty(property.DeclaringType);
                     sql.Append("ALTER TABLE ")

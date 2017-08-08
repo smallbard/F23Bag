@@ -35,6 +35,8 @@ namespace F23Bag.Data
         public class Enumerator : IEnumerator<T>, IEnumerator, IDisposable
         {
             private static readonly MethodInfo _changeTypeMethod = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type) });
+            private static readonly PropertyInfo _indexerDataReader = typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int));
+
             private readonly DbConnection _connection;
             private readonly DbCommand _command;
             private readonly DbDataReader _reader;
@@ -80,16 +82,16 @@ namespace F23Bag.Data
                         for (var i = 0; i < parameters.Length; i++)
                         {
                             Expression exp = null;
-                            if (parameters[i].ParameterType.IsClass && parameters[i].ParameterType.GetCustomAttribute<DbValueTypeAttribute>() == null)
+                            if (parameters[i].ParameterType.IsClass)
                                 exp = Expression.TypeAs(
-                                        Expression.MakeIndex(pDataReader, typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int)), new[] { Expression.Constant(i) }),
+                                        Expression.MakeIndex(pDataReader, _indexerDataReader, new[] { Expression.Constant(i) }),
                                         parameters[i].ParameterType);
                             else if (parameters[i].ParameterType.IsInterface)
                                 exp = Expression.Constant(_resolver(parameters[i].ParameterType));
                             else
                                 exp = Expression.Convert(
                                         Expression.Call(_changeTypeMethod,
-                                            Expression.MakeIndex(pDataReader, typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int)), new[] { Expression.Constant(i) }),
+                                            Expression.MakeIndex(pDataReader, _indexerDataReader, new[] { Expression.Constant(i) }),
                                             Expression.Constant(parameters[i].ParameterType)), parameters[i].ParameterType);
 
                             var variable = Expression.Variable(parameters[i].ParameterType);

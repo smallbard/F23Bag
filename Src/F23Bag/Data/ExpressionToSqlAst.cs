@@ -89,7 +89,7 @@ namespace F23Bag.Data
                 var cstExp = m.Object as ConstantExpression;
                 if (cstExp == null) throw new NotSupportedException("Contains supported only on constant (IEnumerable or List<>) : " + m.ToString());
 
-                SqlAstNode = new In(SqlAstNode, ((System.Collections.IEnumerable)cstExp.Value).OfType<object>().Where(o => o != null).Select(o => new Constant(o)).ToArray());
+                SqlAstNode = new In(SqlAstNode, ((System.Collections.IEnumerable)cstExp.Value).OfType<object>().Where(o => o != null).Select(o => new Constant(o, _sqlMapping)).ToArray());
                 return m;
             }
 
@@ -154,7 +154,7 @@ namespace F23Bag.Data
                 var cstExp = m.Arguments[0] as ConstantExpression;
                 if (cstExp == null) throw new NotSupportedException("Contains supported only on constant (IEnumerable or List<>) : " + m.ToString());
 
-                SqlAstNode = new In(SqlAstNode, ((System.Collections.IEnumerable)cstExp.Value).OfType<object>().Where(o => o != null).Select(o => new Constant(o)).ToArray());
+                SqlAstNode = new In(SqlAstNode, ((System.Collections.IEnumerable)cstExp.Value).OfType<object>().Where(o => o != null).Select(o => new Constant(o, _sqlMapping)).ToArray());
             }
             else if (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 1)
             {
@@ -430,7 +430,7 @@ namespace F23Bag.Data
             if (SqlAstNode is ColumnAccess)
             {
                 // boolean member access
-                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1, _sqlMapping));
             }
 
             if (m.Arguments[0].Type.GetGenericArguments()[0].IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Arguments[0].Type.GetGenericArguments()[0].GetGenericTypeDefinition()))
@@ -545,22 +545,22 @@ namespace F23Bag.Data
 
             if (m.Method.Name == "StartsWith")
             {
-                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Like, str, new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat, value, new Constant("%")));
+                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Like, str, new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat, value, new Constant("%", _sqlMapping)));
                 return m;
             }
             else if (m.Method.Name == "EndsWith")
             {
-                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Like, str, new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat, new Constant("%"), value));
+                SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Like, str, new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat, new Constant("%", _sqlMapping), value));
                 return m;
             }
             else if (m.Method.Name == "Contains")
             {
                 SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Like, str,
                 new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat,
-                    new Constant("%"),
+                    new Constant("%", _sqlMapping),
                     new DML.BinaryExpression(BinaryExpressionTypeEnum.Concat,
                         value,
-                        new Constant("%"))));
+                        new Constant("%", _sqlMapping))));
                 return m;
             }
             else
@@ -585,7 +585,7 @@ namespace F23Bag.Data
                 case ExpressionType.Not:
                     Visit(u.Operand);
                     if (SqlAstNode is ColumnAccess) // boolean member access
-                        SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+                        SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1, _sqlMapping));
                     SqlAstNode = new DML.UnaryExpression(UnaryExpressionTypeEnum.Not, SqlAstNode);
                     break;
                 case ExpressionType.Convert:
@@ -616,10 +616,10 @@ namespace F23Bag.Data
             if (b.NodeType == ExpressionType.And || b.NodeType == ExpressionType.AndAlso || b.NodeType == ExpressionType.Or || b.NodeType == ExpressionType.OrElse)
             {
                 if (left is ColumnAccess) // boolean member access
-                    left = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+                    left = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1, _sqlMapping));
 
                 if (right is ColumnAccess) // boolean member access
-                    right = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1));
+                    right = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, SqlAstNode, new Constant(1, _sqlMapping));
             }
 
             switch (b.NodeType)
@@ -702,15 +702,15 @@ namespace F23Bag.Data
                 SqlAstNode = _request;
             }
             else if (c.Value == null)
-                SqlAstNode = new Constant(null);
+                SqlAstNode = new Constant(null, _sqlMapping);
             else if (Type.GetTypeCode(c.Value.GetType()) == TypeCode.Object && !c.Value.GetType().IsArray)
             {
                 var idProperty = _sqlMapping.GetIdProperty(c.Value.GetType());
                 if (idProperty == null) throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
-                SqlAstNode = new Constant(idProperty.GetValue(c.Value));
+                SqlAstNode = new Constant(idProperty.GetValue(c.Value), _sqlMapping);
             }
             else
-                SqlAstNode = new Constant(c.Value);
+                SqlAstNode = new Constant(c.Value, _sqlMapping);
 
             return c;
         }

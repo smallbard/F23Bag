@@ -9,7 +9,7 @@ using F23Bag.Data.Mapping;
 
 namespace F23Bag.Data
 {
-    public class DbQueryProvider : QueryProvider
+    internal class DbQueryProvider : QueryProvider
     {
         private readonly ISQLProvider _sqlProvider;
         private readonly ISQLMapping _sqlMapping;

@@ -117,7 +117,7 @@ namespace F23Bag.ISeries
 
         public override void Visit(Constant constant)
         {
-            if (constant.Value == null)
+            if (constant.DbValue == null)
                 _sqlElements.Push(new StringBuilder("NULL"));
             else
             {
@@ -126,23 +126,16 @@ namespace F23Bag.ISeries
 
                 if (constant.Parent is Request)
                 {
-                    if (constant.Value is DateTime)
+                    if (constant.DbValue is DateTime)
                         sql.Insert(0, "CAST(").Append(" AS TIMESTAMP)");
-                    else if (constant.Value is int)
+                    else if (constant.DbValue is int)
                         sql.Insert(0, "CAST(").Append(" AS INTEGER)");
                     else
                         throw new NotSupportedException("Only timestamp and integers constants are supported in SELECT.");
                 }
 
                 _sqlElements.Push(sql);
-
-                var value = constant.Value;
-                if (value.GetType().IsClass && value.GetType() != typeof(string))
-                    value = value.GetType().GetProperty("Id").GetValue(value);
-                else if (value.GetType().IsEnum)
-                    value = Convert.ToInt32(value);
-
-                _parameters.Add(Tuple.Create(parameterName.ToString(), value));
+                _parameters.Add(Tuple.Create(parameterName.ToString(), constant.DbValue));
             }
         }
 

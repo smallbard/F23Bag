@@ -191,9 +191,17 @@ namespace F23Bag.Data.Mapping
             {
                 var selectInfo = request.Select[selectIndex];
                 var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
+                var dbValueType = selectInfo.Property.PropertyType.GetDbValueType();
 
                 if (mapper != null)
                     mapper.Map(element, selectInfo.Property, reader, selectIndex);
+                else if (selectInfo.Property.PropertyType != dbValueType)
+                {
+                    var ci = selectInfo.Property.PropertyType.GetConstructor(new[] { dbValueType });
+                    if (ci == null) throw new InvalidOperationException($"{selectInfo.Property.PropertyType.Name} does not have a constructor with one argument of type {dbValueType.Name}.");
+
+                    selectInfo.SetPropertyValue(element, ci.Invoke(new[] { DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(dbValueType) ?? dbValueType) }));
+                }
                 else if (selectInfo.Property.PropertyType.IsEnum)
                     selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
                 else

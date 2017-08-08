@@ -219,7 +219,7 @@ namespace F23Bag.Tests
 		            Exists { 
 			            request skip 0 take 0 select { column { alias { identifier OBJECT1 } } . { identifier * } }
                         where { Equal : { column { alias { identifier OBJECT1 } } . { identifier ID } } : { column { alias { identifier OBJECT1 } } . { identifier ID } } } }"),
-                GetRequest<Object1>(q => q.Where(o => new Query<Object1>(new DbQueryProvider(new FakeSqlProvider(new FakeSqlTraductor()), new DefaultSqlMapping(null), null, null)).Where(o2 => o2.Id == o.Id).Any())));
+                GetRequest<Object1>(q => q.Where(o => new Query<Object1>(new FakeSqlProvider(new FakeSqlTraductor()), new DefaultSqlMapping(null), null, null).Where(o2 => o2.Id == o.Id).Any())));
         }
 
         private string GetRequest<T>(Func<IQueryable<T>, object> defineQuery, params IExpresstionToSqlAst[] converters)
@@ -230,7 +230,7 @@ namespace F23Bag.Tests
         private string GetRequest<T>(Func<IQueryable<T>, object> defineQuery, IPropertyMapper[] mappers, params IExpresstionToSqlAst[] converters)
         {
             var translator = new FakeSqlTraductor();
-            defineQuery(new Query<T>(new DbQueryProvider(new FakeSqlProvider(translator), new DefaultSqlMapping(mappers), converters, null))).ToString();
+            defineQuery(new Query<T>(new FakeSqlProvider(translator), new DefaultSqlMapping(mappers), converters, null)).ToString();
             return translator.Request.ToString();
         }
 
@@ -248,7 +248,7 @@ namespace F23Bag.Tests
 
             public DMLNode Convert(System.Linq.Expressions.Expression expression, Request request, ISQLMapping sqlMapping)
             {
-                return new Constant("converter!");
+                return new Constant("converter!", null);
             }
         }
 

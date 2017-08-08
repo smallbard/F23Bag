@@ -41,6 +41,8 @@ namespace F23Bag.Tests
             Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(ChildObject)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
             Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(ParentObject)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
 
+            Provider.GetDDLTranslator().Translate(new Data.DDL.DDLStatement(Data.DDL.DDLStatementType.CreateTable, typeof(ObjectWithDbValueType)), new DefaultSqlMapping(null), objectsScripts, constraintsAndAlter);
+
             foreach (var sql in objectsScripts) ExecuteNonQuery(sql);
             foreach(var sql in constraintsAndAlter) ExecuteNonQuery(sql);
 
@@ -71,6 +73,8 @@ namespace F23Bag.Tests
 
             ExecuteNonQuery("DROP TABLE PARENT_OBJECT");
             ExecuteNonQuery("DROP TABLE CHILD_OBJECT");
+
+            ExecuteNonQuery("DROP TABLE OBJECT_WITH_DB_VALUE_TYPE");
         }
     }
 }

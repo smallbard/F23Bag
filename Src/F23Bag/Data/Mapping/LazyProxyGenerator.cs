@@ -73,7 +73,7 @@ namespace F23Bag.Data.Mapping
                     };
                     request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                         new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(idProperty))),
-                        new Constant(Convert.ChangeType(_objectId, idProperty.PropertyType)));
+                        new Constant(Convert.ChangeType(_objectId, idProperty.PropertyType), _queryProvider.SqlMapping));
 
                     var mapper = new Mapper(_queryProvider);
                     mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());
@@ -114,7 +114,7 @@ namespace F23Bag.Data.Mapping
                     };
                     request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                         new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(_loadingPropertyInfo.Property))),
-                        new Constant(_parentId));
+                        new Constant(_parentId, _queryProvider.SqlMapping));
 
                     var mapper = new Mapper(_queryProvider);
                     mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());
@@ -179,14 +179,14 @@ namespace F23Bag.Data.Mapping
 
                         request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                             new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(idProperty))),
-                            new Constant(Convert.ChangeType(_objectIds.First(), idProperty.PropertyType)));
+                            new Constant(Convert.ChangeType(_objectIds.First(), idProperty.PropertyType), _queryProvider.SqlMapping));
 
                         foreach (var id in _objectIds.Skip(1))
                             request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Or,
                                 request.Where,
                                 new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                                     new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(idProperty))),
-                                    new Constant(Convert.ChangeType(id, idProperty.PropertyType))));
+                                    new Constant(Convert.ChangeType(id, idProperty.PropertyType), _queryProvider.SqlMapping)));
 
                         var mapper = new Mapper(_queryProvider);
                         mapper.LoadingPropertyInfos.AddRange(_loadingPropertyInfo.GetSubLoadingPropertyInfoforLazy());

@@ -128,20 +128,13 @@ namespace F23Bag.SqlServer
 
         public override void Visit(Constant constant)
         {
-            if (constant.Value == null)
+            if (constant.DbValue == null)
                 _sqlElements.Push(new StringBuilder("NULL"));
             else
             {
                 var parameterName = new StringBuilder("@p").Append(_parameters.Count);
                 _sqlElements.Push(parameterName);
-
-                var value = constant.Value;
-                if (value.GetType().IsClass && value.GetType() != typeof(string))
-                    value = value.GetType().GetProperty("Id").GetValue(value);
-                else if (value.GetType().IsEnum)
-                    value = Convert.ToInt32(value);
-
-                _parameters.Add(Tuple.Create(parameterName.ToString(), value));
+                _parameters.Add(Tuple.Create(parameterName.ToString(), constant.DbValue));
             }
         }
 

@@ -14,7 +14,7 @@ namespace F23Bag.Tests
 
         public IQueryable<T> GetQuery<T>()
         {
-            return new Query<T>(new DbQueryProvider(Provider, new DefaultSqlMapping(null), null, t => Activator.CreateInstance(t)));
+            return new Query<T>(Provider, new DefaultSqlMapping(null), null, t => Activator.CreateInstance(t));
         }
 
         [TestMethod]
@@ -366,6 +366,26 @@ namespace F23Bag.Tests
             Assert.AreEqual(3, child.ParentValue);
         }
 
+        [TestMethod]
+        public void DbValueType()
+        {
+            if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
+
+            var obj = new ObjectWithDbValueType()
+            {
+                Value = new DbValueTypeTest(5)
+            };
+
+            var uw = new UnitOfWork(Provider, new DefaultSqlMapping(null));
+            uw.Save(obj);
+            uw.Commit();
+
+            obj = GetQuery<ObjectWithDbValueType>().Where(o => o.Id == 1).FirstOrDefault();
+            Assert.IsNotNull(obj);
+            Assert.IsNotNull(obj.Value);
+            Assert.AreEqual(5, obj.Value.GetDbValue());
+        }
+
         public class ObjName
         {
             public string Name { get; set; }
@@ -475,6 +495,28 @@ namespace F23Bag.Tests
         public class ChildObject : ParentObject
         {
             public int ChildValue { get; set; }
+        }
+
+        public class ObjectWithDbValueType
+        {
+            public int Id { get; set; }
+
+            public DbValueTypeTest Value { get; set; }
+        }
+
+        public class DbValueTypeTest : IDbValueType<int>
+        {
+            private int _value;
+
+            public DbValueTypeTest(int value)
+            {
+                _value = value;
+            }
+
+            public int GetDbValue()
+            {
+                return _value;
+            }
         }
     }
 }

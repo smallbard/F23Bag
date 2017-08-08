@@ -69,6 +69,7 @@
     <Compile Include="Data\DDLTranslatorBase.cs" />
     <Compile Include="Data\DML\ConditionalExpression.cs" />
     <Compile Include="Data\DontExtractStateAttribute.cs" />
+    <Compile Include="Data\IDbValueType.cs" />
     <Compile Include="Data\IDDLTranslator.cs" />
     <Compile Include="Data\IExpresstionToSqlAst.cs" />
     <Compile Include="Data\IPropertyMapper.cs" />
@@ -76,7 +77,6 @@
     <Compile Include="Data\DML\NameAs.cs" />
     <Compile Include="Data\PropertyAccessorCompiler.cs" />
     <Compile Include="Data\InversePropertyAttribute.cs" />
-    <Compile Include="Data\DbValueTypeAttribute.cs" />
     <Compile Include="Data\StandardSQLTranslator.cs" />
     <Compile Include="Data\TypeExtension.cs" />
     <Compile Include="MetaData\Column.cs" />
