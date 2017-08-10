@@ -9,24 +9,32 @@ namespace F23Bag.Data
 {
     public static class TypeExtension
     {
-        public static bool IsSimpleMappedType(this Type t)
+        public static bool IsSimpleMappedType(this Type type)
         {
-            return (!t.IsClass && !t.IsInterface) || t == typeof(string) || t.GetDbValueType() != t;
+            if (type == null) throw new ArgumentNullException(nameof(type));
+
+            return (!type.IsClass && !type.IsInterface) || type == typeof(string) || type.GetDbValueType() != type;
         }
 
-        public static bool IsEntityOrCollection(this Type t)
+        public static bool IsEntityOrCollection(this Type type)
         {
-            return t != typeof(string) && !t.IsArray && (t.IsClass || t.IsInterface) && t.GetDbValueType() == t;
+            if (type == null) throw new ArgumentNullException(nameof(type));
+
+            return type != typeof(string) && !type.IsArray && (type.IsClass || type.IsInterface) && type.GetDbValueType() == type;
         }
 
-        public static bool IsCollection(this Type t)
+        public static bool IsCollection(this Type type)
         {
-            return t != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(t);
+            if (type == null) throw new ArgumentNullException(nameof(type));
+
+            return type != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(type);
         }
 
-        public static Type GetDbValueType(this Type t)
+        public static Type GetDbValueType(this Type type)
         {
-            return t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDbValueType<>))?.GetGenericArguments()[0] ?? t;
+            if (type == null) throw new ArgumentNullException(nameof(type));
+
+            return type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDbValueType<>))?.GetGenericArguments()[0] ?? type;
         }
     }
 }

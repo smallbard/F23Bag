@@ -35,6 +35,8 @@ namespace F23Bag.Data
 
         public override object Execute(Expression expression)
         {
+            if (expression == null) throw new ArgumentNullException(nameof(expression));
+
             var mapper = new Mapper(this);
             return Execute(mapper, new ExpressionToSqlAst(_sqlMapping, _customConverters, mapper).Translate(Evaluator.PartialEval(expression)), expression.Type);
         }

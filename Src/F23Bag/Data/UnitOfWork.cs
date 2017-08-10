@@ -32,30 +32,32 @@ namespace F23Bag.Data
 
         public event EventHandler<UnitOfWorkEventArgs> BeforeInsert;
 
-        public void TrackChange(object o)
+        public void TrackChange(object objToTrack)
         {
-            var states = StateExtractor.GetStateExtractor(_sqlMapping, o.GetType()).GetAllComponentStates(o);
+            if (objToTrack == null) throw new ArgumentNullException("o");
+
+            var states = StateExtractor.GetStateExtractor(_sqlMapping, objToTrack.GetType()).GetAllComponentStates(objToTrack);
             foreach (var os in states.Keys)
                 _extractedStates[os] = states[os];
         }
 
-        public void Save<T>(T o)
+        public void Save<T>(T objToSave)
         {
-            if (o == null) throw new ArgumentNullException(nameof(o));
+            if (objToSave == null) throw new ArgumentNullException(nameof(objToSave));
             _operations.Add(connection =>
             {
                 var ds = new DoSave<T>();
                 ds.BeforeUpdate += (s, e) => BeforeUpdate?.Invoke(this, e);
                 ds.BeforeInsert += (s, e) => BeforeInsert?.Invoke(this, e);
-                ds.Save(connection, o, null, null, _alreadySaved, _sqlProvider, _sqlMapping, _extractedStates, this);
+                ds.Save(connection, objToSave, null, null, _alreadySaved, _sqlProvider, _sqlMapping, _extractedStates, this);
             });
         }
 
-        public void Delete(object o)
+        public void Delete(object objToDelete)
         {
-            if (o == null) throw new ArgumentNullException(nameof(o));
+            if (objToDelete == null) throw new ArgumentNullException(nameof(objToDelete));
 
-            _operations.Add(connection => ExecuteDelete(o, connection));
+            _operations.Add(connection => ExecuteDelete(objToDelete, connection));
         }
 
         public void Delete<TSource>(IQueryable<TSource> source)

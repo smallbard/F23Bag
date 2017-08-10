@@ -1,4 +1,6 @@
-﻿namespace F23Bag.Data.DML
+﻿using System;
+
+namespace F23Bag.Data.DML
 {
     public class Identifier : DMLNode
     {
@@ -11,6 +13,8 @@
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             visitor.Visit(this);
         }
 

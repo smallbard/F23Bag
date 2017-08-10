@@ -27,6 +27,8 @@ namespace F23Bag.Data
 
         public virtual void Visit(Join join)
         {
+            if (join == null) throw new ArgumentNullException(nameof(join));
+
             var condition = _sqlElements.Pop();
             var alias = _sqlElements.Pop();
             _sqlElements.Push(alias.Insert(0, join.JoinType == JoinTypeEnum.Inner ? " INNER JOIN " : " LEFT JOIN ").Append(" ON ").Append(condition));
@@ -34,11 +36,15 @@ namespace F23Bag.Data
 
         public virtual void Visit(OrderElement orderElement)
         {
+            if (orderElement == null) throw new ArgumentNullException(nameof(orderElement));
+
             _sqlElements.Push(_sqlElements.Pop().Append(orderElement.Ascending ? " ASC" : " DESC"));
         }
 
         public virtual void Visit(UpdateOrInsertInfo updateInfo)
         {
+            if (updateInfo == null) throw new ArgumentNullException(nameof(updateInfo));
+
             if (_request.RequestType == RequestType.InsertSelect || _request.RequestType == RequestType.InsertValues)
                 _sqlElements.Push(_sqlElements.Pop());
             else
@@ -49,6 +55,8 @@ namespace F23Bag.Data
 
         public virtual void Visit(UnaryExpression unaryExpression)
         {
+            if (unaryExpression == null) throw new ArgumentNullException(nameof(unaryExpression));
+
             switch (unaryExpression.UnaryExpressionType)
             {
                 case UnaryExpressionTypeEnum.Average:
@@ -86,6 +94,8 @@ namespace F23Bag.Data
 
         public virtual void Visit(In @in)
         {
+            if (@in == null) throw new ArgumentNullException(nameof(@in));
+
             var sb = _sqlElements.Pop().Append(" IN (");
             for (var i = 0; i < @in.Right.Count(); i++) sb.Append(_sqlElements.Pop()).Append(',');
             sb.Length--;
@@ -95,7 +105,9 @@ namespace F23Bag.Data
 
         public virtual void Visit(ColumnAccess columnAccess)
         {
-            if ((_request.RequestType == RequestType.InsertSelect || _request.RequestType == RequestType.InsertValues || _request.RequestType == RequestType.Update || _request.RequestType == RequestType.Delete) && columnAccess.Parent.GetRequest() == _request)
+            if (columnAccess == null) throw new ArgumentNullException(nameof(columnAccess));
+
+            if ((_request.RequestType == RequestType.InsertSelect || _request.RequestType == RequestType.InsertValues || _request.RequestType == RequestType.Update || _request.RequestType == RequestType.Delete) && columnAccess.Parent.Request == _request)
                 _sqlElements.Pop();
             else
                 _sqlElements.Push(_sqlElements.Pop().Append('.').Append(_sqlElements.Pop()));
@@ -103,16 +115,22 @@ namespace F23Bag.Data
 
         public virtual void Visit(Identifier identifier)
         {
+            if (identifier == null) throw new ArgumentNullException(nameof(identifier));
+
             _sqlElements.Push(new StringBuilder(identifier.IdentifierName));
         }
 
         public virtual void Visit(NameAs nameAs)
         {
+            if (nameAs == null) throw new ArgumentNullException(nameof(nameAs));
+
             _sqlElements.Push(_sqlElements.Pop().Append(" AS ").Append(nameAs.Name));
         }
 
         public virtual void Visit(ConditionalExpression conditionalExpression)
         {
+            if (conditionalExpression == null) throw new ArgumentNullException(nameof(conditionalExpression));
+
             _sqlElements.Push(_sqlElements.Pop().Insert(0, "CASE WHEN ").Append(" THEN ").Append(_sqlElements.Pop()).Append(" ELSE ").Append(_sqlElements.Pop()).Append(" END"));
         }
 

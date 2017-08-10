@@ -5,6 +5,7 @@ using System.Reflection;
 using F23Bag.Data.DML;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace F23Bag.Data
 {
@@ -21,6 +22,7 @@ namespace F23Bag.Data
 
         public virtual DMLNode GetSqlEquivalent(Request request, AliasDefinition ownerAlias, PropertyInfo property, bool inOr)
         {
+            if (request == null) throw new ArgumentNullException(nameof(request));
             if (property == null) throw new ArgumentNullException(nameof(property));
 
             if (property.PropertyType.IsEntityOrCollection())
@@ -64,14 +66,14 @@ namespace F23Bag.Data
             var readOnlyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
             if (readOnlyAtt != null) property = readOnlyAtt.InverseProperty;
 
-            if (property.PropertyType.IsEntityOrCollection()) return "IDFK_" + property.Name.ToUpper();
-            if (property.Name.StartsWith("Id") && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper();
+            if (property.PropertyType.IsEntityOrCollection()) return "IDFK_" + property.Name.ToUpper(CultureInfo.InvariantCulture);
+            if (property.Name.StartsWith("Id", StringComparison.OrdinalIgnoreCase) && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper(CultureInfo.InvariantCulture);
 
             var name = new StringBuilder();
             foreach (var c in property.Name)
             {
                 if (char.IsUpper(c) && name.Length > 0) name.Append('_');
-                name.Append(char.ToUpper(c));
+                name.Append(char.ToUpper(c, CultureInfo.InvariantCulture));
             }
 
             return name.ToString();
@@ -91,6 +93,8 @@ namespace F23Bag.Data
 
         public virtual PropertyInfo GetIdProperty(Type type)
         {
+            if (type == null) throw new ArgumentNullException(nameof(type));
+
             return type.GetProperty("Id");
         }
 
@@ -105,15 +109,17 @@ namespace F23Bag.Data
 
         protected virtual IEnumerable<PropertyInfo> GetMappedPropertiesWithoutCache(Type type)
         {
+            if (type == null) throw new ArgumentNullException(nameof(type));
             return type.GetProperties().Where(p => p.PropertyType.IsSimpleMappedType() && p.GetCustomAttribute<TransientAttribute>() == null);
         }
 
         protected virtual string GetTableName(Type type)
         {
+            if (type == null) throw new ArgumentNullException(nameof(type));
             var tableName = string.Join("",
                 _removedGenericArgumentCount.Replace(string.Join("", new string[] { type.Name }.Union(type.GetGenericArguments().Select(t => t.Name))), "")
-                    .Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c).ToString()));
-            if (tableName.EndsWith("_PROXY")) tableName = tableName.Substring(0, tableName.Length - "_PROXY".Length);
+                    .Select((c, i) => char.IsUpper(c) && i > 0 ? "_" + c : char.ToUpper(c, CultureInfo.InvariantCulture).ToString()));
+            if (tableName.EndsWith("_PROXY", StringComparison.OrdinalIgnoreCase)) tableName = tableName.Substring(0, tableName.Length - "_PROXY".Length);
             return tableName;
         }
 

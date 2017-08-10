@@ -59,9 +59,9 @@ namespace F23Bag.Data
             return _provider.GetQueryText(_expression);
         }
 
-        protected virtual void OnObjectLoaded(T o)
+        protected virtual void OnObjectLoaded(T loadedObject)
         {
-            ObjectLoaded?.Invoke(this, o);
+            ObjectLoaded?.Invoke(this, loadedObject);
         }
     }
 }

@@ -1,9 +1,13 @@
-﻿namespace F23Bag.Data.DML
+﻿using System;
+
+namespace F23Bag.Data.DML
 {
     public class NameAs : DMLNode
     {
         public NameAs(DMLNode sqlNode, string name)
         {
+            if (sqlNode == null) throw new ArgumentNullException(nameof(sqlNode));
+
             Name = name;
             SqlNode = sqlNode;
             sqlNode.Parent = this;
@@ -15,6 +19,8 @@
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             SqlNode.Accept(visitor);
             visitor.Visit(this);
         }

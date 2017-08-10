@@ -9,9 +9,9 @@ namespace F23Bag.Data
     {
         protected QueryProvider() { }
 
-        IQueryable<S> IQueryProvider.CreateQuery<S>(Expression expression)
+        IQueryable<TSource> IQueryProvider.CreateQuery<TSource>(Expression expression)
         {
-            return new Query<S>(this, expression);
+            return new Query<TSource>(this, expression);
         }
 
         IQueryable IQueryProvider.CreateQuery(Expression expression)
@@ -27,16 +27,16 @@ namespace F23Bag.Data
             }
         }
 
-        S IQueryProvider.Execute<S>(Expression expression)
+        TResult IQueryProvider.Execute<TResult>(Expression expression)
         {
             var value = Execute(expression);
             try
             {
-                return (S)(value ?? default(S));
+                return (TResult)(value ?? default(TResult));
             }
             catch (InvalidCastException)
             {
-                return (S)Convert.ChangeType(value, typeof(S));
+                return (TResult)Convert.ChangeType(value, typeof(TResult));
             }
         }
 

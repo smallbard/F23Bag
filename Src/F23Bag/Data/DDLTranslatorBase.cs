@@ -11,8 +11,13 @@ namespace F23Bag.Data
 {
     public abstract class DDLTranslatorBase : IDDLTranslator
     {
-        public virtual void Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping, List<string> objects, List<string> constraintsAndAlter)
+        public virtual void Translate(DDLStatement ddlStatement, ISQLMapping sqlMapping, IList<string> objects, IList<string> constraintsAndAlter)
         {
+            if (ddlStatement == null) throw new ArgumentNullException(nameof(ddlStatement));
+            if (sqlMapping == null) throw new ArgumentNullException(nameof(sqlMapping));
+            if (objects == null) throw new ArgumentNullException(nameof(objects));
+            if (constraintsAndAlter == null) throw new ArgumentNullException(nameof(constraintsAndAlter));
+
             if (ddlStatement.StatementType == DDLStatementType.CreateTable)
             {
                 if (ddlStatement.ElementType == null) throw new ArgumentException("ElementType not set.", nameof(ddlStatement));

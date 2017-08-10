@@ -93,7 +93,7 @@ namespace F23Bag.Data
                 return m;
             }
 
-            throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+            throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
         }
 
         private Expression VisiteUnitOfWorkMethodCall(MethodCallExpression m)
@@ -126,21 +126,21 @@ namespace F23Bag.Data
                 }
             }
             else
-                throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
 
             return m;
         }
 
         private Expression VisitEnumerableMethodCall(MethodCallExpression m)
         {
-            if ((m.Method.Name == "Where" || (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 2) || (m.Method.Name == "Any" && m.Method.GetParameters().Length == 2)))
+            if ((m.Method.Name == "Where" || (m.Method.Name.StartsWith("First", StringComparison.Ordinal) && m.Method.GetParameters().Length == 2) || (m.Method.Name == "Any" && m.Method.GetParameters().Length == 2)))
             {
                 var alias = (AliasDefinition)SqlAstNode;
                 var filter = (LambdaExpression)StripQuotes(m.Arguments[1]);
                 alias.Equivalents.Add(filter.Parameters[0]);
                 Visit(filter.Body);
 
-                if (m.Method.Name.StartsWith("First"))
+                if (m.Method.Name.StartsWith("First", StringComparison.Ordinal))
                 {
                     var subRequest = _request.ExtractJoinToSubRequest(alias);
                     subRequest.Take = 1;
@@ -156,7 +156,7 @@ namespace F23Bag.Data
 
                 SqlAstNode = new In(SqlAstNode, ((System.Collections.IEnumerable)cstExp.Value).OfType<object>().Where(o => o != null).Select(o => new Constant(o, _sqlMapping)).ToArray());
             }
-            else if (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 1)
+            else if (m.Method.Name.StartsWith("First", StringComparison.Ordinal) && m.Method.GetParameters().Length == 1)
             {
                 var alias = (AliasDefinition)SqlAstNode;
                 var subRequest = _request.ExtractJoinToSubRequest(alias);
@@ -218,7 +218,7 @@ namespace F23Bag.Data
                     addAggregation(new DML.UnaryExpression(UnaryExpressionTypeEnum.Average, SqlAstNode));
                 }
                 else
-                    throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                    throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
 
                 _request = oldRequest;
             }
@@ -228,7 +228,7 @@ namespace F23Bag.Data
 
         private Expression VisitQueryableMethodCall(MethodCallExpression m)
         {
-            if (m.Method.Name == "Where" || (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 2))
+            if (m.Method.Name == "Where" || (m.Method.Name.StartsWith("First", StringComparison.Ordinal) && m.Method.GetParameters().Length == 2))
                 VisitQueryableWhereOrFirst(m);
             else if (m.Method.Name == "Distinct" && m.Method.GetParameters().Length == 1)
                 _request.HasDistinct = true;
@@ -344,7 +344,7 @@ namespace F23Bag.Data
                 else
                     throw new NotSupportedException("No supported group by : " + groupBy.ToString());
             }
-            else if (m.Method.Name.StartsWith("First") && m.Method.GetParameters().Length == 1)
+            else if (m.Method.Name.StartsWith("First", StringComparison.Ordinal) && m.Method.GetParameters().Length == 1)
             {
                 _request.Take = 1;
             }
@@ -368,14 +368,14 @@ namespace F23Bag.Data
                     _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Count, null), null, true));
                 }
             }
-            else if ((m.Method.Name.StartsWith("OrderBy") || m.Method.Name.StartsWith("ThenBy")) && m.Method.GetParameters().Length == 2)
+            else if ((m.Method.Name.StartsWith("OrderBy", StringComparison.Ordinal) || m.Method.Name.StartsWith("ThenBy", StringComparison.Ordinal)) && m.Method.GetParameters().Length == 2)
             {
                 var orderBy = (LambdaExpression)StripQuotes(m.Arguments[1]);
                 _request.FromAlias.Equivalents.Add(orderBy.Parameters[0]);
 
                 Visit(orderBy.Body);
 
-                if (m.Method.Name.StartsWith("OrderBy")) _request.Orders.Clear();
+                if (m.Method.Name.StartsWith("OrderBy", StringComparison.Ordinal)) _request.Orders.Clear();
                 _request.Orders.Add(new OrderElement(SqlAstNode, m.Method.Name == "OrderBy" || m.Method.Name == "ThenBy"));
             }
             else if (m.Method.Name == "Any")
@@ -410,10 +410,10 @@ namespace F23Bag.Data
                 else if (m.Method.Name == "Average")
                     _request.Select.Add(new SelectInfo(new DML.UnaryExpression(UnaryExpressionTypeEnum.Average, SqlAstNode), null, true));
                 else
-                    throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                    throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
             }
             else
-                throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
 
             return m;
         }
@@ -438,7 +438,7 @@ namespace F23Bag.Data
             else
             {
                 _request.Where = _request.Where != null ? new DML.BinaryExpression(BinaryExpressionTypeEnum.And, _request.Where, SqlAstNode) : SqlAstNode;
-                if (m.Method.Name.StartsWith("First")) _request.Take = 1;
+                if (m.Method.Name.StartsWith("First", StringComparison.Ordinal)) _request.Take = 1;
             }
         }
 
@@ -531,7 +531,7 @@ namespace F23Bag.Data
                 _mapper.DontLoad(properties.ToArray());
             }
             else
-                throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
 
             return m;
         }
@@ -564,7 +564,7 @@ namespace F23Bag.Data
                 return m;
             }
             else
-                throw new NotSupportedException(string.Format("The method '{0}' is not supported : {1}", m.Method.Name, m.ToString()));
+                throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
         }
 
         private void AddEquivalentProperty(PropertyInfo original, PropertyInfo equivalentProperty)
@@ -595,7 +595,7 @@ namespace F23Bag.Data
                     if (u.Operand.Type.IsEnum)
                         Visit(u.Operand); // ignore convert to int
                     else
-                        throw new NotSupportedException(string.Format("The unary operator '{0}' is not supported", u.NodeType));
+                        throw new NotSupportedException($"The unary operator '{u.NodeType}' is not supported");
                     break;
             }
 
@@ -669,7 +669,7 @@ namespace F23Bag.Data
                     SqlAstNode = new DML.BinaryExpression(BinaryExpressionTypeEnum.Divide, left, right);
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("The binary operator '{0}' is not supported", b.NodeType));
+                    throw new NotSupportedException($"The binary operator '{b.NodeType}' is not supported");
             }
 
             _inOr = oldInOr;
@@ -706,7 +706,7 @@ namespace F23Bag.Data
             else if (Type.GetTypeCode(c.Value.GetType()) == TypeCode.Object && !c.Value.GetType().IsArray)
             {
                 var idProperty = _sqlMapping.GetIdProperty(c.Value.GetType());
-                if (idProperty == null) throw new NotSupportedException(string.Format("The constant for '{0}' is not supported", c.Value));
+                if (idProperty == null) throw new NotSupportedException($"The constant for '{c.Value}' is not supported");
                 SqlAstNode = new Constant(idProperty.GetValue(c.Value), _sqlMapping);
             }
             else

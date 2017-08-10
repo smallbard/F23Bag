@@ -6,11 +6,14 @@
 
         public abstract void Accept(IDMLAstVisitor visitor);
 
-        public Request GetRequest()
+        public Request Request
         {
-            if (Parent is Request) return (Request)Parent;
-            if (Parent != null) return Parent.GetRequest();
-            return this as Request;
+            get
+            {
+                if (Parent is Request) return (Request)Parent;
+                if (Parent != null) return Parent.Request;
+                return this as Request;
+            }
         }
 
         internal abstract DMLNode Clone(AliasDefinition source, AliasDefinition replace);

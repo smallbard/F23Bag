@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace F23Bag.Data.DML
 {
@@ -17,6 +18,8 @@ namespace F23Bag.Data.DML
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             Definition.Accept(visitor);
             visitor.Visit(this);
         }

@@ -60,6 +60,8 @@ namespace F23Bag.Data
 
             protected override Expression VisitMemberInit(MemberInitExpression node)
             {
+                if (node == null) throw new ArgumentNullException(nameof(node));
+
                 var n = (NewExpression)VisitNew(node.NewExpression);
                 var bindings = VisitBindingList(node.Bindings);
                 if (n != node.NewExpression || bindings != node.Bindings)
@@ -105,7 +107,7 @@ namespace F23Bag.Data
                     case MemberBindingType.ListBinding:
                         return this.VisitMemberListBinding((MemberListBinding)binding);
                     default:
-                        throw new Exception(string.Format("Unhandled binding type '{0}'", binding.BindingType));
+                        throw new NotSupportedException($"Unhandled binding type '{binding.BindingType}'");
                 }
             }
 

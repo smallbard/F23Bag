@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -20,6 +21,8 @@ namespace F23Bag.Data.DML
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             foreach (var r in Right.Reverse()) r.Accept(visitor);
             Left.Accept(visitor);
             visitor.Visit(this);

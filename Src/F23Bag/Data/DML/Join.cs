@@ -1,9 +1,14 @@
-﻿namespace F23Bag.Data.DML
+﻿using System;
+
+namespace F23Bag.Data.DML
 {
     public class Join : DMLNode
     {
         public Join(JoinTypeEnum joinType, AliasDefinition alias, DMLNode condition)
         {
+            if (alias == null) throw new ArgumentNullException(nameof(alias));
+            if (condition == null) throw new ArgumentNullException(nameof(condition));
+
             JoinType = joinType;
             Alias = alias;
             alias.Parent = this;
@@ -22,6 +27,8 @@
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             Alias.Accept(visitor);
             Condition.Accept(visitor);
             visitor.Visit(this);

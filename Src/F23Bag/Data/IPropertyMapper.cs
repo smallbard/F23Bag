@@ -13,7 +13,7 @@ namespace F23Bag.Data
     {
         bool Accept(PropertyInfo property);
 
-        SelectInfo DeclareMap(Request request, PropertyInfo property, AliasDefinition alias, bool isNewElement);
+        void DeclareMap(Request request, PropertyInfo property, AliasDefinition alias, bool isNewElement);
 
         void Map(object o, PropertyInfo property, IDataRecord reader, int readerIndex);
     }

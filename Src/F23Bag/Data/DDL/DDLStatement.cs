@@ -12,6 +12,8 @@ namespace F23Bag.Data.DDL
 
         public DDLStatement(DDLStatementType statementType, PropertyInfo property)
         {
+            if (property == null) throw new ArgumentNullException(nameof(property));
+
             StatementType = statementType;
             Property = property;
             ElementType = property.ReflectedType;

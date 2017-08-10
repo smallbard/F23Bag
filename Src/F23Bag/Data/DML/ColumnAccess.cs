@@ -1,4 +1,6 @@
-﻿namespace F23Bag.Data.DML
+﻿using System;
+
+namespace F23Bag.Data.DML
 {
     public class ColumnAccess : DMLNode
     {
@@ -14,6 +16,8 @@
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             Column.Accept(visitor);
             Owner.Accept(visitor);
             visitor.Visit(this);

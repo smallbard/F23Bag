@@ -66,6 +66,8 @@ namespace F23Bag.Data.DML
             get { return _fromAlias; }
             set
             {
+                if (value == null) throw new ArgumentNullException(nameof(value));
+                
                 _fromAlias = value;
                 value.Parent = this;
             }
@@ -140,6 +142,8 @@ namespace F23Bag.Data.DML
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             FromAlias.Accept(visitor);
             foreach (var join in Joins) join.Accept(visitor);
 

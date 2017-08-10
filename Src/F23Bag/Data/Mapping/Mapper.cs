@@ -233,7 +233,7 @@ namespace F23Bag.Data.Mapping
             {
                 var mapper = mappers.FirstOrDefault(m => m.Accept(property));
                 if (mapper != null)
-                    request.Select.Add(mapper.DeclareMap(request, property, alias, isNewElement));
+                    mapper.DeclareMap(request, property, alias, isNewElement);
                 else
                     request.Select.Add(new SelectInfo(_sqlMapping.GetSqlEquivalent(request, alias, property, false), property, isNewElement));
 

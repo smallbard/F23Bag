@@ -31,6 +31,8 @@ namespace F23Bag.Data.DML
 
         public override void Accept(IDMLAstVisitor visitor)
         {
+            if (visitor == null) throw new ArgumentNullException(nameof(visitor));
+
             SelectSql.Accept(visitor);
             visitor.Visit(this);
         }
