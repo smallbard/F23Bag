@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>F23Bag</id>
+    <version>1.0.0</version>
+    <title>F23Bag</title>
+    <authors>Olivier Le Guyader</authors>
+    <owners>Olivier Le Guyader</owners>
+    <licenseUrl>https://github.com/olgstein/F23Bag/blob/master/LICENSE</licenseUrl>
+	<projectUrl>https://github.com/olgstein/F23Bag</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Linq provider and unit of work for Ibm I, Sql server and Sqlite.</description>
+    <releaseNotes></releaseNotes>
+    <copyright>Copyright 2017</copyright>
+    <dependencies>
+        <dependency id="Castle.Core" version="4.2.1" />
+		<dependency id="System.Data.SQLite.Core" version="1.0.109" />
+    </dependencies>
+  </metadata>
+  <files>
+	<file src="..\..\Src\F23Bag\bin\Release\F23Bag.dll" target="lib\net45" />
+	<file src="..\..\Src\F23Bag.ISeries\bin\Release\F23Bag.ISeries.dll" target="lib\net45" />
+	<file src="..\..\Src\F23Bag.SQLite\bin\Release\F23Bag.SQLite.dll" target="lib\net45" />
+	<file src="..\..\Src\F23Bag.SqlServer\bin\Release\F23Bag.SqlServer.dll" target="lib\net45" />
+  </files>
+</package>
