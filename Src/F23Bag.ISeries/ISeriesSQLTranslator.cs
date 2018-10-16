@@ -4,11 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using F23Bag.Data.DML;
+using System.Text.RegularExpressions;
 
 namespace F23Bag.ISeries
 {
     internal class ISeriesSQLTranslator : StandardSQLTranslator
     {
+        private static readonly Regex _regexParameter = new Regex("@p[0-9]+", RegexOptions.Compiled);
+
         public override void Visit(Request request)
         {
             var sb = new StringBuilder();
@@ -124,7 +127,7 @@ namespace F23Bag.ISeries
                 var parameterName = new StringBuilder("@p").Append(_parameters.Count);
                 var sql = new StringBuilder(parameterName.ToString());
 
-                if (constant.Parent is Request)
+                if (constant.Parent is Request && ((Request)constant.Parent).UpdateOrInsert.Count == 0)
                 {
                     if (constant.DbValue is DateTime)
                         sql.Insert(0, "CAST(").Append(" AS TIMESTAMP)");
@@ -217,11 +220,18 @@ namespace F23Bag.ISeries
                 _sqlElements.Push(alias);
             }
         }
-        
+
+        public override void Visit(OrderElement orderElement)
+        {
+            if (orderElement == null) throw new ArgumentNullException(nameof(orderElement));
+
+            _sqlElements.Push(new StringBuilder(_regexParameter.Replace(_sqlElements.Pop().ToString(), "''")).Append(orderElement.Ascending ? " ASC" : " DESC"));
+        }
+
         private void AddPagination(Request request, StringBuilder sb)
         {
             sb.Append(", DENSE_RANK() OVER( ORDER BY ");
-
+            
             foreach (var order in request.Orders)
             {
                 var columnAccess = order.OrderOn as ColumnAccess;
@@ -231,7 +241,8 @@ namespace F23Bag.ISeries
                 if (!order.Ascending) sb.Append(" DESC ");
                 sb.Append(',');
             }
-            sb.Length -= 1;
+
+            sb.Append(_aliasNames[request.FromAlias]).Append('.').Append(request.IdColumnName);
             sb.Append(") AS DSRANK");
         }
     }

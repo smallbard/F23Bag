@@ -220,7 +220,7 @@ namespace F23Bag.SqlServer
         private void AddPagination(Request request, StringBuilder sb)
         {
             sb.Append(", DENSE_RANK() OVER( ORDER BY ");
-
+            
             foreach (var order in request.Orders)
             {
                 var columnAccess = order.OrderOn as ColumnAccess;
@@ -230,7 +230,8 @@ namespace F23Bag.SqlServer
                 if (!order.Ascending) sb.Append(" DESC ");
                 sb.Append(',');
             }
-            sb.Length -= 1;
+
+            sb.Append(_aliasNames[request.FromAlias]).Append('.').Append(request.IdColumnName);
             sb.Append(") AS DSRANK");
         }
     }

@@ -65,6 +65,7 @@ namespace F23Bag.Data
             if (m.Method.ReflectedType == typeof(string) && m.Method.GetParameters().Length == 1) return VisitStringMethodCall(m);
             if (m.Method.ReflectedType == typeof(QueryableExtension)) return VisitQueryableExtensionMethodCall(m);
             if (m.Method.ReflectedType == typeof(UnitOfWork)) return VisiteUnitOfWorkMethodCall(m);
+            if (m.Method.ReflectedType == typeof(Utilities)) return VisitUtilitiesMethodCall(m);
 
             if (m.Arguments.Count > 0) Visit(m.Arguments[0]);
 
@@ -94,6 +95,21 @@ namespace F23Bag.Data
             }
 
             throw new NotSupportedException($"The method '{m.Method.Name}' is not supported : {m.ToString()}");
+        }
+
+        private Expression VisitUtilitiesMethodCall(MethodCallExpression m)
+        {
+            if (m.Method.Name == nameof(Utilities.UseLeftJoin))
+            {
+                var oldInOr = _inOr;
+                _inOr = true;
+
+                Visit(m.Arguments[0]);
+
+                _inOr = oldInOr;
+            }
+
+            return m;
         }
 
         private Expression VisiteUnitOfWorkMethodCall(MethodCallExpression m)
@@ -237,6 +253,9 @@ namespace F23Bag.Data
                 var select = (LambdaExpression)StripQuotes(m.Arguments[1]);
                 _request.FromAlias.Equivalents.Add(select.Parameters[0]);
 
+                var oldInOr = _inOr;
+                _inOr = true;
+
                 if (select.Body is MemberExpression && ((MemberExpression)select.Body).Member is PropertyInfo)
                 {
                     var memberExp = (MemberExpression)select.Body;
@@ -300,11 +319,13 @@ namespace F23Bag.Data
                             var subRequest = _request;
                             _request = _request.ParentRequest;
                             _request.Select.Add(new SelectInfo(subRequest, (PropertyInfo)mbAssign.Member, newElement));
+                            _sqlMapping.SetSqlEquivalent((PropertyInfo)mbAssign.Member, SqlAstNode);
                         }
                         else
                         {
                             Visit(mbAssign.Expression);
                             _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)mbAssign.Member, newElement));
+                            _sqlMapping.SetSqlEquivalent((PropertyInfo)mbAssign.Member, SqlAstNode);
                         }
 
                         newElement = false;
@@ -313,6 +334,8 @@ namespace F23Bag.Data
                 }
                 else
                     throw new NotSupportedException("No supported select : " + select.ToString());
+
+                _inOr = oldInOr;
             }
             else if (m.Method.Name == "GroupBy" && m.Method.GetParameters().Length == 2)
             {
@@ -494,6 +517,12 @@ namespace F23Bag.Data
             {
                 var arg = (NewExpression)newExpArgument;
                 for (var j = 0; j < arg.Arguments.Count; j++) VisitNewExpressionArgument(arg, j, arg.Arguments[j]);
+            }
+            else if (newExpArgument is System.Linq.Expressions.BinaryExpression)
+            {
+                VisitBinary((System.Linq.Expressions.BinaryExpression)newExpArgument);
+                _request.Select.Add(new SelectInfo(SqlAstNode, (PropertyInfo)newExp.Members[i], _request.Select.Count == 0));
+                _sqlMapping.SetSqlEquivalent((PropertyInfo)newExp.Members[i], SqlAstNode);
             }
             else
                 throw new NotSupportedException("Only property access and method from Enumerable are supported : " + newExp.Arguments[i].ToString());
@@ -722,7 +751,11 @@ namespace F23Bag.Data
             if (m.Member.Name == "Key" && m.Member.ReflectedType.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(m.Member.ReflectedType.GetGenericTypeDefinition()))
                 SqlAstNode = _request.GroupBy[0];
             else
-                SqlAstNode = _sqlMapping.GetSqlEquivalent(_request, (AliasDefinition)SqlAstNode, GetRealProperty((PropertyInfo)m.Member), _inOr);
+            {
+                var property = (PropertyInfo)m.Member;
+                if (property.ReflectedType != m.Expression.Type) property = m.Expression.Type.GetProperty(property.Name);
+                SqlAstNode = _sqlMapping.GetSqlEquivalent(_request, (AliasDefinition)SqlAstNode, GetRealProperty(property), _inOr);
+            }
             return m;
         }
 
@@ -732,6 +765,8 @@ namespace F23Bag.Data
             {
                 _request = new Request(_request);
                 _request.FromAlias = new AliasDefinition(_sqlMapping.GetSqlEquivalent(node.Type.GetGenericArguments()[0]));
+                _request.IdColumnName = _sqlMapping.GetColumnName(_sqlMapping.GetIdProperty(node.Type.GetGenericArguments()[0]));
+
                 SqlAstNode = _request;
                 return node;
             }

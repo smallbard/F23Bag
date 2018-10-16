@@ -1,2 +1,2 @@
 # F23Bag
-Linq provider, unit of work, UI inspired by naked objects
+Linq provider for SQLite, SQL Server and Ibm I.

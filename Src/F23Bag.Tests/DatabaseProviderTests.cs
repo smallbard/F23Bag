@@ -63,7 +63,7 @@ namespace F23Bag.Tests
             uw.Delete(GetQuery<Object3>());
             uw.Delete(GetQuery<Object1>().Where(o => o.Id == 2));
             uw.Delete(GetQuery<Object1>().First(o => o.Id == 1));
-            uw.Execute("UPDATE OBJECT1 SET NAME = 'testUWCommand' WHERE ID > 1", null);
+            uw.Execute("UPDATE OBJECT1 SET NAME = 'testUWCommand' WHERE ID > 1", Enumerable.Empty<Tuple<string, object>>());
             uw.Commit();
 
             Assert.AreEqual(1, GetQuery<Object1>().Count());
@@ -316,20 +316,20 @@ namespace F23Bag.Tests
         {
             if (!EnableTests) Assert.Inconclusive("Configure the connection string in app.Config.");
 
-            var result1 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjName { Name = o.Name }).First();
+            var result1 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjName { Id = o.Id, Name = o.Name }).First();
             Assert.IsNotNull(result1);
             Assert.AreEqual("obj1", result1.Name);
 
-            var result2 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjValue2 { Value2 = o.Objet2.Value2 }).First();
+            var result2 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjValue2 { Id = o.Id, Value2 = o.Objet2.Value2 }).First();
             Assert.IsNotNull(result2);
             Assert.AreEqual(1.2, result2.Value2);
 
-            var result3 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Name = o.Name, Obj2Count = GetQuery<Object2>().Count() }).First();
+            var result3 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Id = o.Id, Name = o.Name, Obj2Count = GetQuery<Object2>().Count() }).First();
             Assert.IsNotNull(result3);
             Assert.AreEqual("obj1", result3.Name);
             Assert.AreEqual(3, result3.Obj2Count);
 
-            var result4 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Name = o.Name, Obj2Count = GetQuery<Object2>().Where(o2 => o.Objet2.Id == o2.Id).Count() }).First();
+            var result4 = GetQuery<Object1>().Where(o => o.Id == 1).Select(o => new ObjNameCount { Id = o.Id, Name = o.Name, Obj2Count = GetQuery<Object2>().Where(o2 => o.Objet2.Id == o2.Id).Count() }).First();
             Assert.IsNotNull(result4);
             Assert.AreEqual("obj1", result4.Name);
             Assert.AreEqual(1, result4.Obj2Count);
@@ -388,16 +388,22 @@ namespace F23Bag.Tests
 
         public class ObjName
         {
+            public int Id { get; set; }
+
             public string Name { get; set; }
         }
 
         public class ObjValue2
         {
+            public int Id { get; set; }
+
             public double Value2 { get; set; }
         }
 
         public class ObjNameCount
         {
+            public int Id { get; set; }
+
             public string Name { get; set; }
 
             public int Obj2Count { get; set; }

@@ -13,7 +13,7 @@ namespace F23Bag.Data.Mapping
         private readonly ISQLMapping _sqlMapping;
         private readonly DbQueryProvider _queryProvider;
         private readonly Dictionary<LoadingPropertyInfo, int> _lazyProperties;
-        private readonly Dictionary<LoadingPropertyInfo, Tuple<int,int>> _loadingPropertyInfoSelectIndexes;
+        private readonly Dictionary<LoadingPropertyInfo, Tuple<int, int>> _loadingPropertyInfoSelectIndexes;
         private readonly LazyProxyGenerator _lazyProxyGenerator;
         private IEnumerable<IPropertyMapper> _mappers;
 
@@ -65,7 +65,7 @@ namespace F23Bag.Data.Mapping
                     AddSelectForSimpleProperties(request, elementType, request.FromAlias);
                 }
             }
-            
+
             if (LoadingPropertyInfos.Count > 0)
             {
                 if (request.ProjectionType != null && request.ProjectionType != LoadingPropertyInfos[0].Property.ReflectedType)
@@ -157,14 +157,19 @@ namespace F23Bag.Data.Mapping
                     var element = firstRead ? (isCollection ? new CollectionActivator().CreateInstance(lpi.Property.PropertyType) : _queryProvider.Resolve(lpi.Property.PropertyType)) : lpi.Property.GetValue(o);
                     if (firstRead) lpi.SetPropertyValue(o, element);
 
+                    var localFirstRead = firstRead;
+
                     if (isCollection)
                     {
                         var collection = (System.Collections.IList)element;
                         if (collection.Count > 0)
                         {
-                            element = collection[collection.Count - 1];
-                            var idProperty = request.Select[idSelectIndex].Property;
-                            if (firstRead = !idProperty.GetValue(element).Equals(Convert.ChangeType(reader[idSelectIndex], Nullable.GetUnderlyingType(idProperty.PropertyType) ?? idProperty.PropertyType)))
+                            var idProperty = new PropertyAccessorCompiler(request.Select[idSelectIndex].Property);
+                            var readId = Convert.ChangeType(reader[idSelectIndex], Nullable.GetUnderlyingType(idProperty.Property.PropertyType) ?? idProperty.Property.PropertyType);
+                            element = collection.OfType<object>().FirstOrDefault(elt => idProperty.GetPropertyValue(elt).Equals(readId));
+                            localFirstRead = element == null;
+
+                            if (localFirstRead)
                             {
                                 element = Activator.CreateInstance(elementType);
                                 collection.Add(element);
@@ -177,10 +182,10 @@ namespace F23Bag.Data.Mapping
                         }
                     }
 
-                    if (firstRead)
+                    if (localFirstRead)
                         MapProperties(reader, request, elementType, element, lpiIndexes.Item1);
 
-                    MapLoading(element, reader, request, firstRead, lpi.SubLoadingPropertyInfo);
+                    MapLoading(element, reader, request, localFirstRead, lpi.SubLoadingPropertyInfo);
                 }
             }
         }
@@ -190,39 +195,42 @@ namespace F23Bag.Data.Mapping
             do
             {
                 var selectInfo = request.Select[selectIndex];
-                var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
-                var dbValueType = selectInfo.Property.PropertyType.GetDbValueType();
-
-                if (mapper != null)
-                    mapper.Map(element, selectInfo.Property, reader, selectIndex);
-                else if (selectInfo.Property.PropertyType != dbValueType)
+                if (selectInfo.Property != null)
                 {
-                    var ci = selectInfo.Property.PropertyType.GetConstructor(new[] { dbValueType });
-                    if (ci == null) throw new InvalidOperationException($"{selectInfo.Property.PropertyType.Name} does not have a constructor with one argument of type {dbValueType.Name}.");
+                    var mapper = _mappers.FirstOrDefault(m => m.Accept(selectInfo.Property));
+                    var dbValueType = selectInfo.Property.PropertyType.GetDbValueType();
 
-                    selectInfo.SetPropertyValue(element, ci.Invoke(new[] { DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(dbValueType) ?? dbValueType) }));
-                }
-                else if (selectInfo.Property.PropertyType.IsEnum)
-                    selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
-                else
-                {
-                    try
+                    if (mapper != null)
+                        mapper.Map(element, selectInfo.Property, reader, selectIndex);
+                    else if (selectInfo.Property.PropertyType != dbValueType)
                     {
-                        selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
+                        var ci = selectInfo.Property.PropertyType.GetConstructor(new[] { dbValueType });
+                        if (ci == null) throw new InvalidOperationException($"{selectInfo.Property.PropertyType.Name} does not have a constructor with one argument of type {dbValueType.Name}.");
+
+                        selectInfo.SetPropertyValue(element, ci.Invoke(new[] { DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(dbValueType) ?? dbValueType) }));
                     }
-                    catch (NullReferenceException)
+                    else if (selectInfo.Property.PropertyType.IsEnum)
+                        selectInfo.SetPropertyValue(element, Convert.ToInt32(reader[selectIndex]));
+                    else
                     {
-                        if (DBNull.Value.Equals(reader[selectIndex]))
+                        try
                         {
-                            throw new SQLException($"{selectInfo.Property.Name} does not accept null (NULL was found in database).");
+                            selectInfo.SetPropertyValue(element, DBNull.Value.Equals(reader[selectIndex]) ? null : Convert.ChangeType(reader[selectIndex], Nullable.GetUnderlyingType(selectInfo.Property.PropertyType) ?? selectInfo.Property.PropertyType));
                         }
-                        else
-                            throw;
+                        catch (NullReferenceException)
+                        {
+                            if (DBNull.Value.Equals(reader[selectIndex]))
+                            {
+                                throw new SQLException($"{selectInfo.Property.Name} does not accept null (NULL was found in database).");
+                            }
+                            else
+                                throw;
+                        }
                     }
                 }
                 selectIndex++;
             }
-            while (selectIndex < request.Select.Count && request.Select[selectIndex].Property != null && !request.Select[selectIndex].IsNewElement);
+            while (selectIndex < request.Select.Count && !request.Select[selectIndex].IsNewElement);
         }
 
         private void AddSelectForSimpleProperties(Request request, Type elementType, AliasDefinition alias)

@@ -15,7 +15,7 @@ namespace F23Bag.ISeries
 
         public IDbConnection GetConnection()
         {
-            return new IBM.Data.DB2.iSeries.iDB2Connection(_connectionString);
+            return new AdoProxies.ISeriesDbConnection(new IBM.Data.DB2.iSeries.iDB2Connection(_connectionString));
         }
 
         public IDDLTranslator GetDDLTranslator()

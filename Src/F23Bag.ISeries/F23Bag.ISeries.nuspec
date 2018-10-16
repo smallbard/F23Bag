@@ -1,0 +1,35 @@
+﻿<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>F23Bag.ISeries</id>
+    <!-- Id du package nuget-->
+    <version>$version$</version>
+    <!-- Version du package; version du package = version de l'assembly de la librairie Pasquier concerné-->
+    <title>F23Bag.ISeries</title>
+    <authors>SI Pasquier Groupe</authors>
+    <owners>DatabaseScripts.Tools</owners>
+    <description>
+      Outils pour utiliser la base de données ISeries
+    </description>
+    <releaseNotes>
+    </releaseNotes>
+    <summary>
+      Outils pour utiliser la base de données ISeries
+    </summary>
+    <language>fr</language>
+    <!--<iconUrl>http://passv78:8083/Pasquier.png</iconUrl>
+  <projectUrl>http://passv84:8082/</projectUrl> -->
+    <copyright>Copyright Pasquier 2017</copyright>
+    <dependencies>     
+    </dependencies>
+    <references></references>
+    <tags>F23Bag.ISeries</tags>
+  </metadata>
+  <files>
+    <!-- Chemin vers les dlls générée par le projet concerné -->
+    <file src="F23Bag.dll" target="lib\net45" />
+    <file src="F23Bag.xml" target="lib\net45" />
+    <file src="F23Bag.ISeries.dll" target="lib\net45" />
+    <file src="F23Bag.ISeries.xml" target="lib\net45" />
+  </files>
+</package>

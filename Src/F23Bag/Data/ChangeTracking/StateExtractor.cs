@@ -129,7 +129,7 @@ namespace F23Bag.Data.ChangeTracking
 
         public IEnumerable<PropertyInfo> GetChangedProperties(State newState)
         {
-            for (var i = 0; i < StateElements.Length; i++)
+            for (var i = 0; i < StateElements.Length && (newState == null || i < newState.StateElements.Length); i++)
             {
                 var value = StateElements[i].Value;
 

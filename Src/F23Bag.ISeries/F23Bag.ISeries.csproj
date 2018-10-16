@@ -9,8 +9,13 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>F23Bag.ISeries</RootNamespace>
     <AssemblyName>F23Bag.ISeries</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+    <SccProjectName>%24/ERP/RD/OpenSource/F23Bag/Main/F23Bag.ISeries</SccProjectName>
+    <SccLocalPath>.</SccLocalPath>
+    <SccAuxPath>http://passv84:8080/tfs/pasquier</SccAuxPath>
+    <SccProvider>{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}</SccProvider>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -20,9 +25,10 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\F23Bag.ISeries.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugType>none</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
@@ -44,6 +50,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AdoProxies\ISeriesDbCommand.cs" />
+    <Compile Include="AdoProxies\ISeriesDbConnection.cs" />
+    <Compile Include="AdoProxies\ISeriesDbParameterCollection.cs" />
     <Compile Include="ISeriesDDLTranslator.cs" />
     <Compile Include="ISeriesProvider.cs" />
     <Compile Include="ISeriesSQLTranslator.cs" />
@@ -54,6 +63,11 @@
       <Project>{f30872ff-4ca4-4ccb-bf5c-e4ebe4ee8379}</Project>
       <Name>F23Bag</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="F23Bag.ISeries.nuspec">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

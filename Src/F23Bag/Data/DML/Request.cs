@@ -144,6 +144,9 @@ namespace F23Bag.Data.DML
         {
             if (visitor == null) throw new ArgumentNullException(nameof(visitor));
 
+            var oldRequest = visitor.CurrentRequest ?? this;
+            visitor.CurrentRequest = this;
+
             FromAlias.Accept(visitor);
             foreach (var join in Joins) join.Accept(visitor);
 
@@ -158,6 +161,8 @@ namespace F23Bag.Data.DML
             foreach (var select in Select.Reverse()) select.Accept(visitor);
 
             visitor.Visit(this);
+
+            visitor.CurrentRequest = oldRequest;
         }
 
         public override string ToString()

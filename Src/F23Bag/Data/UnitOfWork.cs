@@ -6,6 +6,7 @@ using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 
 namespace F23Bag.Data
 {
@@ -32,13 +33,28 @@ namespace F23Bag.Data
 
         public event EventHandler<UnitOfWorkEventArgs> BeforeInsert;
 
+        public event EventHandler<SqlExecutionEventArgs> SqlExecution;
+
         public void TrackChange(object objToTrack)
         {
-            if (objToTrack == null) throw new ArgumentNullException("o");
+            if (objToTrack == null) throw new ArgumentNullException(nameof(objToTrack));
+
+            if (_extractedStates.ContainsKey(objToTrack)) return;
 
             var states = StateExtractor.GetStateExtractor(_sqlMapping, objToTrack.GetType()).GetAllComponentStates(objToTrack);
             foreach (var os in states.Keys)
                 _extractedStates[os] = states[os];
+        }
+
+        public bool HasChanged(object objTracked)
+        {
+            if (objTracked == null) throw new ArgumentNullException(nameof(objTracked));
+            if (!_extractedStates.ContainsKey(objTracked)) throw new ArgumentException("The object is not tracked (TrackChanged must be called).", nameof(objTracked));
+
+            var initialState = _extractedStates[objTracked];
+            var newState = StateExtractor.GetStateExtractor(_sqlMapping, objTracked.GetType()).GetAllComponentStates(objTracked)[objTracked];
+
+            return initialState.GetChangedProperties(newState).Any();
         }
 
         public void Save<T>(T objToSave)
@@ -77,10 +93,14 @@ namespace F23Bag.Data
 
         public void Execute(string sql, IEnumerable<Tuple<string, object>> parameters)
         {
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+
             _operations.Add(connection =>
             {
                 using (var cmd = connection.CreateCommand())
                 {
+                    OnSqlExecution(sql, parameters.ToDictionary(t => t.Item1, t => t.Item2));
+
                     cmd.CommandText = sql;
 
                     if (parameters != null)
@@ -92,7 +112,24 @@ namespace F23Bag.Data
                             cmd.Parameters.Add(parameter);
                         }
 
-                    cmd.ExecuteNonQuery();
+                    try
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                    catch (Exception ex)
+                    {
+                        var messase = new StringBuilder("Error in the request : ").Append(cmd.CommandText);
+                        if (parameters != null)
+                        {
+                            messase.Append(" Parameters :");
+                            foreach (var p in parameters)
+                            {
+                                messase.Append(' ').Append(p.Item1).Append(" = ").Append(DBNull.Value.Equals(p.Item2) ? "NULL" : p.Item2?.ToString());
+                            }
+                        }
+                        messase.Append(" Error : ").Append(ex.Message);
+                        throw new SQLException(messase.ToString(), ex);
+                    }
                 }
             });
         }
@@ -103,12 +140,21 @@ namespace F23Bag.Data
             {
                 if (connection.State != System.Data.ConnectionState.Open) connection.Open();
 
-                using (var transaction = connection.BeginTransaction())
-                {
-                    _operations.ForEach(op => op(connection));
-                    transaction.Commit();
-                }
+                //using (var transaction = connection.BeginTransaction())
+                //{
+                Commit(connection);
+                //transaction.Commit();
+                //}
             }
+        }
+
+        public void Commit(IDbConnection connection)
+        {
+            if (connection == null) throw new ArgumentNullException(nameof(connection));
+
+            if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+
+            _operations.ForEach(op => op(connection));
 
             _operations.Clear();
             _alreadySaved.Clear();
@@ -118,6 +164,11 @@ namespace F23Bag.Data
         {
             _operations.Clear();
             _alreadySaved.Clear();
+        }
+
+        protected void OnSqlExecution(string sql, Dictionary<string, object> parameters)
+        {
+            SqlExecution?.Invoke(this, new SqlExecutionEventArgs(sql, parameters));
         }
 
         private void ExecuteDelete(object o, IDbConnection connection)
@@ -136,7 +187,7 @@ namespace F23Bag.Data
             };
             request.Where = new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal, _sqlMapping.GetSqlEquivalent(request, fromAlias, idProperty, false), new Constant(id, _sqlMapping));
 
-            BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o));
+            BeforeDelete?.Invoke(this, new UnitOfWorkEventArgs(connection, id, table, o, request));
 
             var parameters = new List<Tuple<string, object>>();
             var sql = _sqlProvider.GetSQLTranslator().Translate(request, parameters);
@@ -188,7 +239,7 @@ namespace F23Bag.Data
 
                 var doInsert = (idProperty.PropertyType.IsValueType && Activator.CreateInstance(idProperty.PropertyType).Equals(id)) || (!idProperty.PropertyType.IsValueType && id == null);
                 var initialState = !doInsert && extractedStates.ContainsKey(o) ? extractedStates[o] : null;
-                var newState = initialState != null ? StateExtractor.GetStateExtractor(sqlMapping, typeof(T)).GetAllComponentStates(o)[o] : null;
+                var newState = initialState != null ? StateExtractor.GetStateExtractor(sqlMapping, o.GetType()).GetAllComponentStates(o)[o] : null;
 
                 var table = sqlMapping.GetSqlEquivalent(o.GetType());
                 var fromAlias = new AliasDefinition(table);
@@ -226,6 +277,10 @@ namespace F23Bag.Data
                         if (value != null)
                         {
                             var ds = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(pac.Property.PropertyType));
+
+                            ds.BeforeInsert += (s, e) => OnBeforeInsert(e);
+                            ds.BeforeUpdate += (s, e) => OnBeforeUpdate(e);
+
                             ds.Save(connection, value, null, null, alreadySaved, sqlProvider, sqlMapping, extractedStates, uw);
                             value = new PropertyAccessorCompiler(sqlMapping.GetIdProperty(value.GetType())).GetPropertyValue(value);
                         }
@@ -252,9 +307,9 @@ namespace F23Bag.Data
                 if (request.UpdateOrInsert.Count > 0)
                 {
                     if (doInsert)
-                        OnBeforeInsert(new UnitOfWorkEventArgs(connection, null, table, o));
+                        OnBeforeInsert(new UnitOfWorkEventArgs(connection, null, table, o, request));
                     else
-                        OnBeforeUpdate(new UnitOfWorkEventArgs(connection, id, table, o));
+                        OnBeforeUpdate(new UnitOfWorkEventArgs(connection, id, table, o, request));
 
                     var parameters = new List<Tuple<string, object>>();
                     var sql = sqlProvider.GetSQLTranslator().Translate(request, parameters);
@@ -284,6 +339,10 @@ namespace F23Bag.Data
                         if (value == null) continue;
 
                         var doSave = (DoSave)Activator.CreateInstance(typeof(DoSave<>).MakeGenericType(property.Property.PropertyType.GetGenericArguments()[0]));
+
+                        doSave.BeforeInsert += (s, e) => OnBeforeInsert(e);
+                        doSave.BeforeUpdate += (s, e) => OnBeforeUpdate(e);
+
                         foreach (var obj in (System.Collections.IEnumerable)value)
                         {
                             doSave.Save(connection, obj, property.Property, id, alreadySaved, sqlProvider, sqlMapping, extractedStates, uw);
@@ -305,12 +364,13 @@ namespace F23Bag.Data
 
     public class UnitOfWorkEventArgs : EventArgs
     {
-        public UnitOfWorkEventArgs(IDbConnection connection, object id, DMLNode table, object entity)
+        public UnitOfWorkEventArgs(IDbConnection connection, object id, DMLNode table, object entity, Request request)
         {
             Connection = connection;
             Id = id;
             Table = table;
             Entity = entity;
+            Request = request;
         }
 
         public IDbConnection Connection { get; private set; }
@@ -320,5 +380,7 @@ namespace F23Bag.Data
         public DMLNode Table { get; private set; }
 
         public object Entity { get; private set; }
+
+        public Request Request { get; private set; }
     }
 }

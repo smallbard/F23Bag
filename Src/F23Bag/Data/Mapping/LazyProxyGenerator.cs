@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace F23Bag.Data.Mapping
 {
-    internal class LazyProxyGenerator 
+    internal class LazyProxyGenerator
     {
         public static readonly ProxyGenerator ProxyGenerator = new ProxyGenerator();
         private readonly DbQueryProvider _queryProvider;
@@ -69,7 +69,8 @@ namespace F23Bag.Data.Mapping
                         RequestType = RequestType.Select,
                         FromAlias = new AliasDefinition(_queryProvider.SqlMapping.GetSqlEquivalent(elementType)),
                         ProjectionType = elementType,
-                        Take = 1
+                        Take = 1,
+                        IdColumnName = _queryProvider.SqlMapping.GetColumnName(idProperty)
                     };
                     request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                         new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(idProperty))),
@@ -105,12 +106,14 @@ namespace F23Bag.Data.Mapping
                 if (_collection == null)
                 {
                     var elementType = _loadingPropertyInfo.Property.PropertyType.GetGenericArguments()[0];
+                    var idProperty = _queryProvider.SqlMapping.GetIdProperty(elementType);
 
                     var request = new Request()
                     {
                         RequestType = RequestType.Select,
                         FromAlias = new AliasDefinition(_queryProvider.SqlMapping.GetSqlEquivalent(elementType)),
-                        ProjectionType = elementType
+                        ProjectionType = elementType,
+                        IdColumnName = _queryProvider.SqlMapping.GetColumnName(idProperty)
                     };
                     request.Where = new BinaryExpression(BinaryExpressionTypeEnum.Equal,
                         new ColumnAccess(request.FromAlias, new Identifier(_queryProvider.SqlMapping.GetColumnName(_loadingPropertyInfo.Property))),

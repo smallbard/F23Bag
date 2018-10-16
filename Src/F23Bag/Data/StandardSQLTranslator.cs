@@ -14,11 +14,16 @@ namespace F23Bag.Data
         protected Request _request;
         protected ICollection<Tuple<string, object>> _parameters;
 
+        public Request CurrentRequest
+        {
+            get => _request;
+            set => _request = value;
+        }
+
         public string Translate(Request request, ICollection<Tuple<string, object>> parameters)
         {
             _sqlElements.Clear();
             _aliasNames.Clear();
-            _request = request;
             _parameters = parameters;
             request.Accept(this);
 
@@ -65,6 +70,15 @@ namespace F23Bag.Data
                 case UnaryExpressionTypeEnum.Count:
                     if (unaryExpression.Operand != null)
                         _sqlElements.Push(_sqlElements.Pop().Insert(0, "COUNT(").Append(')'));
+                    else if (_request.FromAlias != null && !string.IsNullOrEmpty(_request.IdColumnName))
+                    {
+                        _sqlElements.Push(new StringBuilder());
+                        Visit(_request.FromAlias);
+                        var alias = _sqlElements.Pop();
+                        _sqlElements.Push(new StringBuilder("COUNT(DISTINCT ").Append(alias).Append('.').Append(_request.IdColumnName).Append(")"));
+                    }
+                    else if (!string.IsNullOrEmpty(_request.IdColumnName))
+                        _sqlElements.Push(new StringBuilder("COUNT(DISTINCT ").Append(_request.IdColumnName).Append(")"));
                     else
                         _sqlElements.Push(new StringBuilder("COUNT(*)"));
                     break;

@@ -5,7 +5,6 @@ using System.Text;
 using F23Bag.Data.DDL;
 using F23Bag.Data.DML;
 using System.Reflection;
-using F23Bag.Domain;
 
 namespace F23Bag.Data
 {

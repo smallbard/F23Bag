@@ -2,6 +2,8 @@
 {
     public interface IDMLAstVisitor
     {
+        Request CurrentRequest { get; set; }
+
         void Visit(AliasDefinition aliasDefinition);
         void Visit(BinaryExpression binaryExpression);
         void Visit(ColumnAccess columnAccess);

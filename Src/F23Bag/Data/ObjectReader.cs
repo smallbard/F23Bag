@@ -7,6 +7,7 @@ using System.Reflection;
 using F23Bag.Data.DML;
 using F23Bag.Data.Mapping;
 using System.Linq.Expressions;
+using System.Data;
 
 namespace F23Bag.Data
 {
@@ -14,7 +15,7 @@ namespace F23Bag.Data
     {
         private Enumerator _enumerator;
 
-        internal ObjectReader(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
+        internal ObjectReader(IDbConnection connection, IDbCommand command, IDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
         {
             _enumerator = new Enumerator(connection, command, reader, request, sqlTranslator, mapper, resolver);
         }
@@ -35,11 +36,11 @@ namespace F23Bag.Data
         public class Enumerator : IEnumerator<T>, IEnumerator, IDisposable
         {
             private static readonly MethodInfo _changeTypeMethod = typeof(Convert).GetMethod("ChangeType", new Type[] { typeof(object), typeof(Type) });
-            private static readonly PropertyInfo _indexerDataReader = typeof(DbDataReader).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int));
+            private static readonly PropertyInfo _indexerDataReader = typeof(IDataRecord).GetProperties().First(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int));
 
-            private readonly DbConnection _connection;
-            private readonly DbCommand _command;
-            private readonly DbDataReader _reader;
+            private readonly IDbConnection _connection;
+            private readonly IDbCommand _command;
+            private readonly IDataReader _reader;
             private readonly Request _request;
             private readonly ISQLTranslator _sqlTranslator;
             private readonly bool _isSimpleType;
@@ -47,12 +48,12 @@ namespace F23Bag.Data
             private readonly Mapper _mapper;
             private readonly Func<Type, object> _resolver;
             private readonly Func<T> _createNew;
-            private readonly Func<DbDataReader, T> _createNewAnonymousType;
+            private readonly Func<IDataReader, T> _createNewAnonymousType;
             private T _current;
             private object _lastId;
             private bool _notEndOfReader;
 
-            internal Enumerator(DbConnection connection, DbCommand command, DbDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
+            internal Enumerator(IDbConnection connection, IDbCommand command, IDataReader reader, Request request, ISQLTranslator sqlTranslator, Mapper mapper, Func<Type, object> resolver)
             {
                 _connection = connection;
                 _command = command;
@@ -71,7 +72,7 @@ namespace F23Bag.Data
                     {
                         _isAnonymousType = true;
 
-                        var pDataReader = Expression.Parameter(typeof(DbDataReader));
+                        var pDataReader = Expression.Parameter(typeof(IDataReader));
                         var variables = new List<ParameterExpression>();
                         var body = new List<Expression>();
 
@@ -107,7 +108,7 @@ namespace F23Bag.Data
                         body.Add(Expression.Label(returnTarget, Expression.Constant(default(T), typeof(T))));
 
                         if (_isAnonymousType)
-                            _createNewAnonymousType = Expression.Lambda<Func<DbDataReader, T>>(Expression.Block(variables, body), pDataReader).Compile();
+                            _createNewAnonymousType = Expression.Lambda<Func<IDataReader, T>>(Expression.Block(variables, body), pDataReader).Compile();
                         else
                             _createNew = Expression.Lambda<Func<T>>(Expression.Block(variables, body)).Compile();
                     }
@@ -158,6 +159,7 @@ namespace F23Bag.Data
                 {
                     if (!_reader.Read()) return false;
                     _lastId = _mapper.GetMainId(_reader, _request);
+                    if (_lastId == null) throw new NotSupportedException("There must be an id column.");
                 }
 
                 var id = _lastId;

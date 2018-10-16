@@ -14,6 +14,7 @@ namespace F23Bag.Data
         private readonly static Dictionary<Type, IEnumerable<PropertyInfo>> _mappedProperties = new Dictionary<Type, IEnumerable<PropertyInfo>>();
         private readonly static Regex _removedGenericArgumentCount = new Regex("`[0-9]", RegexOptions.Compiled);
         private readonly IEnumerable<IPropertyMapper> _propertyMappers;
+        private readonly Dictionary<string, DMLNode> _registeredEquivalents = new Dictionary<string, DMLNode>();
 
         public DefaultSqlMapping(IEnumerable<IPropertyMapper> propertyMappers)
         {
@@ -25,9 +26,16 @@ namespace F23Bag.Data
             if (request == null) throw new ArgumentNullException(nameof(request));
             if (property == null) throw new ArgumentNullException(nameof(property));
 
+            if (ownerAlias != null && _registeredEquivalents.ContainsKey(property.DeclaringType.Name + "." + property.Name))
+            {
+                return _registeredEquivalents[property.DeclaringType.Name + "." + property.Name];
+            }
+
             if (property.PropertyType.IsEntityOrCollection())
             {
-                var alias = request.GetAliasFor(property);
+                var propertyAccess = new PropertyAccess(ownerAlias, property);
+
+                var alias = request.GetAliasFor(propertyAccess);
                 if (alias == null)
                 {
                     var elementType = property.PropertyType.IsCollection() ? property.PropertyType.GetGenericArguments()[0] : property.PropertyType;
@@ -50,7 +58,7 @@ namespace F23Bag.Data
                         alias = new DML.AliasDefinition(GetSqlEquivalent(elementType)),
                         GetJoinCondition(request, property, ownerAlias, alias, inOr)));
 
-                    alias.Equivalents.Add(property);
+                    alias.Equivalents.Add(propertyAccess);
                 }
                 else
                     request.GetJoinForAlias(alias).Use++;
@@ -61,10 +69,18 @@ namespace F23Bag.Data
                 return new ColumnAccess(ownerAlias, new Identifier(GetColumnName(property)));
         }
 
+        public virtual void SetSqlEquivalent(PropertyInfo property, DMLNode sqlEquivalent)
+        {
+            if (property == null) throw new ArgumentNullException(nameof(property));
+            if (sqlEquivalent == null) throw new ArgumentNullException(nameof(sqlEquivalent));
+
+            _registeredEquivalents[property.DeclaringType.Name + "." +  property.Name] = sqlEquivalent;
+        }
+
         public virtual string GetColumnName(PropertyInfo property)
         {
-            var readOnlyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
-            if (readOnlyAtt != null) property = readOnlyAtt.InverseProperty;
+            var inversePropertyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
+            if (inversePropertyAtt != null) property = inversePropertyAtt.InverseProperty;
 
             if (property.PropertyType.IsEntityOrCollection()) return "IDFK_" + property.Name.ToUpper(CultureInfo.InvariantCulture);
             if (property.Name.StartsWith("Id", StringComparison.OrdinalIgnoreCase) && property.Name.Length > 2) return "IDFK_" + property.Name.Substring(2).ToUpper(CultureInfo.InvariantCulture);
@@ -125,14 +141,24 @@ namespace F23Bag.Data
 
         private DMLNode GetJoinCondition(Request request, PropertyInfo property, AliasDefinition aliasOwner, AliasDefinition aliasElement, bool inOr)
         {
-            if (typeof(System.Collections.IEnumerable).IsAssignableFrom(property.PropertyType))
+            if (property.PropertyType.IsCollection())
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
                     GetSqlEquivalent(request, aliasOwner, GetIdProperty(property.ReflectedType), inOr),
                     new ColumnAccess(aliasElement, new DML.Identifier(GetColumnName(property))));
             else
+            {
+                var inversePropertyAtt = property.GetCustomAttribute<InversePropertyAttribute>();
+                if (inversePropertyAtt != null && !inversePropertyAtt.InverseProperty.PropertyType.IsCollection())
+                {
+                    return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
+                        new ColumnAccess(aliasElement, new Identifier(GetColumnName(inversePropertyAtt.InverseProperty))),
+                        new ColumnAccess(aliasOwner, new Identifier(GetColumnName(GetIdProperty(property.ReflectedType)))));
+                }
+
                 return new DML.BinaryExpression(BinaryExpressionTypeEnum.Equal,
                     GetSqlEquivalent(request, aliasElement, GetIdProperty(property.PropertyType), inOr),
                     new ColumnAccess(aliasOwner, new Identifier(GetColumnName(property))));
+            }
         }
     }
 }

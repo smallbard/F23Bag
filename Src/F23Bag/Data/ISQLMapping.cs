@@ -11,6 +11,8 @@ namespace F23Bag.Data
 
         DMLNode GetSqlEquivalent(Request request, AliasDefinition ownerAlias, PropertyInfo property, bool inOr);
 
+        void SetSqlEquivalent(PropertyInfo property, DMLNode sqlEquivalent);
+
         string GetColumnName(PropertyInfo property);
 
         IEnumerable<IPropertyMapper> GetCustomPropertiesMappers();

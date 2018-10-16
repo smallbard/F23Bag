@@ -106,7 +106,7 @@ namespace F23Bag.Tests
             Assert.AreEqual(REL(@"
             { request skip 0 take 0 
                 select { alias { identifier OBJECT2 } }
-                        { Inner join { alias { identifier OBJECT2 } }
+                        { Left join { alias { identifier OBJECT2 } }
                             on { Equal :
                                     { column { alias { identifier OBJECT2 } } . { identifier ID } } : 
 		                            { column { alias { identifier OBJECT1 } } . { identifier IDFK_OBJECT } } } }"), 
@@ -119,7 +119,7 @@ namespace F23Bag.Tests
             Assert.AreEqual(REL(@"
             { request skip 0 take 0 
                 select { alias { identifier OBJECT2 } }
-                    { Inner join { alias { identifier OBJECT2 } } 
+                    { Left join { alias { identifier OBJECT2 } } 
                         on { Equal : 
                             { column { alias { identifier OBJECT1 } } . { identifier ID } } : 
                             { column { alias { identifier OBJECT2 } } . { identifier IDFK_OBJECTS } } } }"), 

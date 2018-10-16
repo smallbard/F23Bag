@@ -151,6 +151,11 @@ namespace F23Bag.Data.Mapping
             var property = propertyAccess.Member as PropertyInfo;
             if (property == null) throw new NotSupportedException("LazyLoad and EagerLoad are available for property only : " + expression.ToString());
 
+            if (property.ReflectedType != propertyAccess.Expression.Type)
+            {
+                property = propertyAccess.Expression.Type.GetProperty(property.Name);
+            }
+
             if (propertyAccess.Expression is ParameterExpression)
                 return new LoadingPropertyInfo(property, lazyLoadingType);
             else if (propertyAccess.Expression is MethodCallExpression && ((MethodCallExpression)propertyAccess.Expression).Method.Name == "First" && ((MethodCallExpression)propertyAccess.Expression).Arguments[0] is MemberExpression)
